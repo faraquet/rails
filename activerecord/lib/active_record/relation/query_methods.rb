@@ -430,6 +430,24 @@ module ActiveRecord
       self
     end
 
+
+    module WindowFunction
+      def row_number(partition: nil, order: nil)
+        window_function("row_number", partition: partition, order: order)
+      end
+
+      def window_function(name, partition: nil, order: nil)
+        window = Arel::Nodes::Window.new
+        window.partition(partition) if partition
+        window.order(order) if order
+
+        self.select_values |= [Arel::Nodes::NamedFunction.new(name, [Arel.star]).over(window)]
+        self
+      end
+    end
+
+    include WindowFunction
+
     # Add a Common Table Expression (CTE) that you can then reference within another SELECT statement.
     #
     # Note: CTE's are only supported in MySQL for versions 8.0 and above. You will not be able to

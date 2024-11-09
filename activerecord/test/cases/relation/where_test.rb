@@ -92,6 +92,10 @@ module ActiveRecord
       assert_equal posts(:welcome), Post.rewhere(title: "Welcome to the weblog").first
     end
 
+    def test_window
+      assert_equal 1, Post.row_number.load
+    end
+
     def test_where_with_tuple_syntax
       first_topic = topics(:first)
       third_topic = topics(:third)
