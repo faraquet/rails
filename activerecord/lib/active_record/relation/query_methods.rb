@@ -430,23 +430,15 @@ module ActiveRecord
       self
     end
 
+    def window(name, over: {})
+      window = Arel::Nodes::Window.new
+      window.partition(over[:partition]) if over[:partition]
 
-    module WindowFunction
-      def row_number(partition: nil, order: nil)
-        window_function("row_number", partition: partition, order: order)
-      end
+      window.order("id desc") if over[:order] # TODO: remove this line when we support ORDER BY in window functions
 
-      def window_function(name, partition: nil, order: nil)
-        window = Arel::Nodes::Window.new
-        window.partition(partition) if partition
-        window.order(order) if order
-
-        self.select_values |= [Arel::Nodes::NamedFunction.new(name, [Arel.star]).over(window)]
-        self
-      end
+      self.select_values |= [Arel::Nodes::NamedFunction.new(name, [Arel.star]).over(window).as(name)]
+      self
     end
-
-    include WindowFunction
 
     # Add a Common Table Expression (CTE) that you can then reference within another SELECT statement.
     #

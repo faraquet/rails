@@ -14,7 +14,7 @@ module ActiveRecord
       :find_each, :find_in_batches, :in_batches,
       :select, :reselect, :order, :regroup, :in_order_of, :reorder, :group, :limit, :offset, :joins, :left_joins, :left_outer_joins,
       :where, :rewhere, :invert_where, :preload, :extract_associated, :eager_load, :includes, :from, :lock, :readonly,
-      :row_number,
+      :window,
       :and, :or, :annotate, :optimizer_hints, :extending,
       :having, :create_with, :distinct, :references, :none, :unscope, :merge, :except, :only,
       :count, :average, :minimum, :maximum, :sum, :calculate,

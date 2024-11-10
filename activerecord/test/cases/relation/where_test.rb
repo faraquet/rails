@@ -93,7 +93,8 @@ module ActiveRecord
     end
 
     def test_window
-      assert_equal 1, Post.row_number.load
+      assert_equal [[11, 1], [10, 2], [9, 3], [8, 4], [7, 5], [6, 6], [5, 7], [4, 8], [3, 9], [2, 10], [1, 11]],
+        Post.select(:id).window("row_number", over: { order: { id: :asc } }).map { |p| [p.id, p.row_number] }
     end
 
     def test_where_with_tuple_syntax
