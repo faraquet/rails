@@ -431,13 +431,18 @@ module ActiveRecord
     end
 
     def window(name, over: {})
+      # TODO: Allow multiple windows
+
       window = Arel::Nodes::Window.new
       window.partition(over[:partition]) if over[:partition]
+      window.order(prepare_over_order_args(over[:order])) if over[:order]
 
-      window.order("id desc") if over[:order] # TODO: remove this line when we support ORDER BY in window functions
-
-      self.select_values |= [Arel::Nodes::NamedFunction.new(name, [Arel.star]).over(window).as(name)]
+      self.window_values |= [Arel::Nodes::NamedFunction.new(name, []).over(window).as(over[:as] || name)]
       self
+    end
+
+    def prepare_over_order_args(*args) # TODO: Move to Arel?
+      preprocess_order_args(sanitize_order_arguments(args))
     end
 
     # Add a Common Table Expression (CTE) that you can then reference within another SELECT statement.
@@ -1913,6 +1918,8 @@ module ActiveRecord
         else
           arel.project(table[Arel.star])
         end
+
+        arel.project(window_values) unless window_values.empty? # TODO: Maybe no here or combine
       end
 
       def build_with(arel)
