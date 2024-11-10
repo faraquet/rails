@@ -430,14 +430,19 @@ module ActiveRecord
       self
     end
 
-    def window(name, over: {})
-      # TODO: Allow multiple windows
+    def window(**args)
+      # TODO: Add guard clause to prevent calling this method if the database does not support window functions
+      self.window_values |= args.map do |name, options|
+        window = Arel::Nodes::Window.new
 
-      window = Arel::Nodes::Window.new
-      window.partition(over[:partition]) if over[:partition]
-      window.order(prepare_over_order_args(over[:order])) if over[:order]
+        over = options[:over] || {}
+        window.partition(over[:partition]) if over[:partition]
+        window.order(prepare_over_order_args(over[:order])) if over[:order]
 
-      self.window_values |= [Arel::Nodes::NamedFunction.new(name, []).over(window).as(over[:as] || name)]
+        # TODO: Add support for functions with expressions
+        Arel::Nodes::NamedFunction.new(name.to_s, []).over(window).as((over[:as] || name).to_s)
+      end
+
       self
     end
 
