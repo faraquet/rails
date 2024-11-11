@@ -431,6 +431,9 @@ module ActiveRecord
     end
 
     module Window
+      # TODO: Fragment
+      # Docs
+      # More tests
       def window(*args)
         args = process_window_args(args)
         spawn.window!(*args)
