@@ -431,9 +431,14 @@ module ActiveRecord
     end
 
     module Window
-      # TODO: Fragment
+      # TODO:
+      # Fix order args
+      # Fragment
       # Docs
       # More tests
+      # More examples
+      # Guard against invalid arguments
+      # Guard against DB support
       def window(*args)
         args = process_window_args(args)
         spawn.window!(*args)
@@ -468,7 +473,7 @@ module ActiveRecord
       def apply_order(window, order)
         return unless order
 
-        order_options = prepare_over_order_args(order)
+        order_options = prepare_window_order_args(order)
         window.order(order_options)
       end
 
@@ -483,7 +488,8 @@ module ActiveRecord
         end
       end
 
-      def prepare_over_order_args(*args)       # TODO: Move to Arel?
+      def prepare_window_order_args(*args)
+        # TODO: Move to Arel?
         args = sanitize_order_arguments(args)
         preprocess_order_args(args)
       end
