@@ -430,69 +430,72 @@ module ActiveRecord
       self
     end
 
-    def window(*args)
-      args = process_window_args(args)
-      spawn.window!(*args)
-    end
-
-    def window!(*args)
-      self.window_values |= args.map do |name, options|
-        build_window_function(name, options || {})
+    module Window
+      def window(*args)
+        args = process_window_args(args)
+        spawn.window!(*args)
       end
 
-      self
-    end
+      def window!(*args)
+        self.window_values |= args.map do |name, options|
+          build_window_function(name, options || {})
+        end
 
-    def build_window_function(name, options)
-      window = Arel::Nodes::Window.new
-
-      apply_partition(window, options[:partition])
-      apply_order(window, options[:order])
-
-      expressions = extract_window_value(options[:value])
-
-      Arel::Nodes::NamedFunction.new(name.to_s, expressions).over(window).as((options[:as] || name).to_s)
-    end
-
-    def apply_partition(window, partition)
-      return unless partition
-
-      # Assuming `partition` supports basic types, otherwise add validation
-      window.partition(partition)
-    end
-
-    def apply_order(window, order)
-      return unless order
-
-      order_options = prepare_over_order_args(order)
-      window.order(order_options)
-    end
-
-    def extract_window_value(value)
-      case value
-      when Symbol, String
-        [Arel::Nodes::SqlLiteral.new(value.to_s)]
-      when nil
-        []
-      else
-        raise ArgumentError, "Invalid argument for window value"
+        self
       end
-    end
 
-    def prepare_over_order_args(*args)       # TODO: Move to Arel?
-      args = sanitize_order_arguments(args)
-      preprocess_order_args(args)
-    end
+      def build_window_function(name, options)
+        window = Arel::Nodes::Window.new
 
-    def process_window_args(args)
-      args.flat_map do |element|
-        if element.is_a?(Hash)
-          element.map { |k, v| [k, v] }
+        apply_partition(window, options[:partition])
+        apply_order(window, options[:order])
+
+        expressions = extract_window_value(options[:value])
+
+        Arel::Nodes::NamedFunction.new(name.to_s, expressions).over(window).as((options[:as] || name).to_s)
+      end
+
+      def apply_partition(window, partition)
+        return unless partition
+
+        # Assuming `partition` supports basic types, otherwise add validation
+        window.partition(partition)
+      end
+
+      def apply_order(window, order)
+        return unless order
+
+        order_options = prepare_over_order_args(order)
+        window.order(order_options)
+      end
+
+      def extract_window_value(value)
+        case value
+        when Symbol, String
+          [Arel::Nodes::SqlLiteral.new(value.to_s)]
+        when nil
+          []
         else
-          [element]
+          raise ArgumentError, "Invalid argument for window value"
+        end
+      end
+
+      def prepare_over_order_args(*args)       # TODO: Move to Arel?
+        args = sanitize_order_arguments(args)
+        preprocess_order_args(args)
+      end
+
+      def process_window_args(args)
+        args.flat_map do |element|
+          if element.is_a?(Hash)
+            element.map { |k, v| [k, v] }
+          else
+            [element]
+          end
         end
       end
     end
+    include Window
 
     # Add a Common Table Expression (CTE) that you can then reference within another SELECT statement.
     #

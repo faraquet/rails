@@ -601,5 +601,36 @@ module ActiveRecord
           row_number: { partition: "posts.id", order: { body: :asc }, as: "rating" }
         ).map { |p| [p.post.title, p.body, p.rating] }
     end
+
+    def window_creates_window_function_with_partition_and_order
+      relation = Post.all
+      result = relation.window(partition: :author_id, order: :created_at)
+      assert_equal "WINDOW w AS (PARTITION BY author_id ORDER BY created_at)", result.to_sql
+    end
+
+    def window_creates_window_function_with_alias
+      relation = Post.all
+      result = relation.window(rank: { partition: :author_id, order: :created_at, as: :rank })
+      assert_equal "WINDOW rank AS (PARTITION BY author_id ORDER BY created_at)", result.to_sql
+    end
+
+    def window_creates_window_function_with_value
+      relation = Post.all
+      result = relation.window(rank: { value: :id, partition: :author_id, order: :created_at })
+      assert_equal "WINDOW rank AS (PARTITION BY author_id ORDER BY created_at)", result.to_sql
+    end
+
+    def window_creates_window_function_without_partition_or_order
+      relation = Post.all
+      result = relation.window(rank: { value: :id })
+      assert_equal "WINDOW rank AS ()", result.to_sql
+    end
+
+    def window_raises_error_for_invalid_window_value
+      relation = Post.all
+      assert_raises(ArgumentError) do
+        relation.window(rank: { value: 123 })
+      end
+    end
   end
 end
