@@ -495,6 +495,7 @@ module ActiveRecord
       end
 
       def process_window_args(args)
+        # TODO: List of unsupported options check
         args.flat_map do |element|
           if element.is_a?(Hash)
             element.map { |k, v| [k, v] }
