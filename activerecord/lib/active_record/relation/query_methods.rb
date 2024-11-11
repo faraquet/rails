@@ -443,41 +443,47 @@ module ActiveRecord
     end
 
     def window!(*args)
-      self.window_values |= args.map do |obj|
-        if obj.is_a?(Hash)
-          name, options = obj.first
-        elsif obj.is_a?(Symbol) || obj.is_a?(String)
-          name = obj
-          options = {}
-        else
-          raise ArgumentError, "Invalid argument for window"
-        end
-
-        window = Arel::Nodes::Window.new
-
-        if options[:partition]
-          window.partition(options[:partition])
-        end
-
-        if options[:order]
-          order_options = prepare_over_order_args(options[:order])
-          window.order(order_options)
-        end
-
-        if options[:value]
-          if options[:value].is_a?(Symbol) || options[:value].is_a?(String)
-            expressions = [Arel::Nodes::SqlLiteral.new(options[:value].to_s)]
-          else
-            raise ArgumentError, "Invalid argument for window value"
-          end
-        else
-          expressions = []
-        end
-
-        Arel::Nodes::NamedFunction.new(name.to_s, expressions).over(window).as((options[:as] || name).to_s)
+      self.window_values |= args.map do |name, options|
+        build_window_function(name, options || {})
       end
 
       self
+    end
+
+    def build_window_function(name, options)
+      window = Arel::Nodes::Window.new
+
+      apply_partition(window, options[:partition])
+      apply_order(window, options[:order])
+
+      expressions = extract_window_value(options[:value])
+
+      Arel::Nodes::NamedFunction.new(name.to_s, expressions).over(window).as((options[:as] || name).to_s)
+    end
+
+    def apply_partition(window, partition)
+      return unless partition
+
+      # Assuming `partition` supports basic types, otherwise add validation
+      window.partition(partition)
+    end
+
+    def apply_order(window, order)
+      return unless order
+
+      order_options = prepare_over_order_args(order)
+      window.order(order_options)
+    end
+
+    def extract_window_value(value)
+      case value
+      when Symbol, String
+        [Arel::Nodes::SqlLiteral.new(value.to_s)]
+      when nil
+        []
+      else
+        raise ArgumentError, "Invalid argument for window value"
+      end
     end
 
     def prepare_over_order_args(*args)       # TODO: Move to Arel?
@@ -2323,9 +2329,9 @@ module ActiveRecord
     def process_window_args(args)
       args.flat_map do |element|
         if element.is_a?(Hash)
-          element.map { |k, v| { k => v } }
+          element.map { |k, v| [k, v] }
         else
-          element
+          [element]
         end
       end
     end
@@ -2356,13 +2362,6 @@ module ActiveRecord
         arg.map { |k, v| { k => v } }
       end
     end
-
-    # def process_window_args(args)
-    #   args.flat_map do |arg|
-    #     raise ArgumentError, "Unsupported argument type: #{arg} #{arg.class}" unless arg.is_a?(Hash) || arg.is_a?(Symbol)
-    #     arg.map { |k, v| { k => v } }
-    #   end
-    # end
 
     STRUCTURAL_VALUE_METHODS = (
       Relation::VALUE_METHODS -
