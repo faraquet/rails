@@ -430,7 +430,7 @@ module ActiveRecord
       self
     end
 
-    def window(**args)
+    def window(**args) # TODO: Unify with "WITH"
       # TODO: Add guard clause to prevent calling this method if the database does not support window functions
       self.window_values |= args.map do |name, options|
         window = Arel::Nodes::Window.new

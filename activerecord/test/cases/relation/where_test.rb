@@ -92,11 +92,55 @@ module ActiveRecord
       assert_equal posts(:welcome), Post.rewhere(title: "Welcome to the weblog").first
     end
 
-    def test_window
-      assert_equal  [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
+    test 'window row number' do
+      assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
         Essay.window(row_number: { over: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" } })
              .order(:writer_type, id: :asc).map { |p| [p.writer_id, p.writer_type, p.rating] }
     end
+
+    test 'window rank' do
+      assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
+        Essay.window(rank: { over: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" } })
+             .order(:writer_type, :rating).map { |p| [p.writer_id, p.writer_type, p.rating] }
+    end
+
+    test 'window dense rank' do
+      assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
+        Essay.window(dense_rank: { over: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" } })
+             .order(:writer_type, :rating).map { |p| [p.writer_id, p.writer_type, p.rating] }
+    end
+
+    # test 'window lag' do
+    #   assert_equal [["David", "Author", nil, "A Modest Proposal"],
+    #     ["Mary", "Author", "A Modest Proposal", "Stay Home"],
+    #     ["Steve", "Human", "Stay Home", "Connecting The Dots"]],
+    #     Essay.window(lag: { value: :name, order: { writer_id: :asc }, over: { partition: :writer_type }, as: "previous_essay" })
+    #          .order(:writer_type, :writer_id).map { |p| [p.writer_id, p.writer_type, p.previous_essay, p.name] }
+    # end
+
+    # test 'window lead' do
+    #   assert_equal [["David", "Author", "Stay Home", "A Modest Proposal"],
+    #     ["Mary", "Author", "Connecting The Dots", "Stay Home"],
+    #     ["Steve", "Human", nil, "Connecting The Dots"]],
+    #     Essay.window(lead: { value: :name, order: { writer_id: :asc }, over: { partition: :writer_type }, as: "next_essay" })
+    #          .order(:writer_type, :writer_id).map { |p| [p.writer_id, p.writer_type, p.next_essay, p.name] }
+    # end
+
+    # test 'window first value' do
+    #   assert_equal [["David", "Author", "A Modest Proposal"],
+    #     ["Mary", "Author", "Stay Home"],
+    #     ["Steve", "Human", "Connecting The Dots"]],
+    #     Essay.window(first_value: { value: :name, over: { partition: :writer_type } }, as: "first_essay")
+    #          .order(:writer_type, :writer_id).map { |p| [p.writer_id, p.writer_type, p.first_essay] }
+    # end
+
+    # test 'window last value' do
+    #   assert_equal [["David", "Author", "A Modest Proposal"],
+    #     ["Mary", "Author", "Stay Home"],
+    #     ["Steve", "Human", "Connecting The Dots"]],
+    #     Essay.window(last_value: { value: :name, over: { partition: :writer_type } }, as: "last_essay")
+    #          .order(:writer_type, :writer_id).map { |p| [p.writer_id, p.writer_type, p.last_essay] }
+    # end
 
     def test_where_with_tuple_syntax
       first_topic = topics(:first)
