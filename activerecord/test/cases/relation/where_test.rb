@@ -98,6 +98,18 @@ module ActiveRecord
              .order(:writer_type, id: :asc).map { |p| [p.writer_id, p.writer_type, p.rating] }
     end
 
+    test 'window row number without options' do
+      assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
+        Essay.window(:row_number)
+             .order(:writer_type, id: :asc).map { |p| [p.writer_id, p.writer_type, p.row_number] }
+    end
+
+    test 'combined args' do
+      assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
+        Essay.window(:row_number, rank: { over: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" } })
+             .order(:writer_type, id: :asc).map { |p| [p.writer_id, p.writer_type, p.row_number] }
+    end
+
     test 'window rank' do
       assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
         Essay.window(rank: { over: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" } })

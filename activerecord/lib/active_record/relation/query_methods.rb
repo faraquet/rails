@@ -430,12 +430,24 @@ module ActiveRecord
       self
     end
 
-    def window(**args) # TODO: Unify with "WITH"
-      # TODO: Add guard clause to prevent calling this method if the database does not support window functions
-      self.window_values |= args.map do |name, options|
-        window = Arel::Nodes::Window.new
+    def window(*args)
+      if args.empty?
+        WhereChain.new(spawn)
+      elsif args.length == 1 && args.first.blank?
+        self
+      else
+        spawn.window!(*args)
+      end
+    end
 
-        over = options[:over] || {}
+    def window!(*args)
+      # TODO: Add guard clause to prevent calling this method if the database does not support window functions
+
+      self.window_values |= process_window_args(args).map do |obj|
+        window = Arel::Nodes::Window.new
+        name, options = obj.first
+        over = options && options[:over] || {}
+
         window.partition(over[:partition]) if over[:partition]
         window.order(prepare_over_order_args(over[:order])) if over[:order]
 
@@ -2269,6 +2281,13 @@ module ActiveRecord
       end
 
       def process_with_args(args)
+        args.flat_map do |arg|
+          raise ArgumentError, "Unsupported argument type: #{arg} #{arg.class}" unless arg.is_a?(Hash)
+          arg.map { |k, v| { k => v } }
+        end
+      end
+
+      def process_window_args(args)
         args.flat_map do |arg|
           raise ArgumentError, "Unsupported argument type: #{arg} #{arg.class}" unless arg.is_a?(Hash)
           arg.map { |k, v| { k => v } }
