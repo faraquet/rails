@@ -92,68 +92,6 @@ module ActiveRecord
       assert_equal posts(:welcome), Post.rewhere(title: "Welcome to the weblog").first
     end
 
-    test 'window row number' do
-      assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
-        Essay.window(row_number: { over: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" } })
-             .order(:writer_type, id: :asc).map { |p| [p.writer_id, p.writer_type, p.rating] }
-    end
-
-    test 'window row number without options' do
-      assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
-        Essay.window(:row_number)
-             .order(:writer_type, id: :asc).map { |p| [p.writer_id, p.writer_type, p.row_number] }
-    end
-
-    test 'combined args' do
-      assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
-        Essay.window(:row_number, rank: { over: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" } })
-             .order(:writer_type, id: :asc).map { |p| [p.writer_id, p.writer_type, p.row_number] }
-    end
-
-    test 'window rank' do
-      assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
-        Essay.window(rank: { over: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" } })
-             .order(:writer_type, :rating).map { |p| [p.writer_id, p.writer_type, p.rating] }
-    end
-
-    test 'window dense rank' do
-      assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
-        Essay.window(dense_rank: { over: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" } })
-             .order(:writer_type, :rating).map { |p| [p.writer_id, p.writer_type, p.rating] }
-    end
-
-    # test 'window lag' do
-    #   assert_equal [["David", "Author", nil, "A Modest Proposal"],
-    #     ["Mary", "Author", "A Modest Proposal", "Stay Home"],
-    #     ["Steve", "Human", "Stay Home", "Connecting The Dots"]],
-    #     Essay.window(lag: { value: :name, order: { writer_id: :asc }, over: { partition: :writer_type }, as: "previous_essay" })
-    #          .order(:writer_type, :writer_id).map { |p| [p.writer_id, p.writer_type, p.previous_essay, p.name] }
-    # end
-
-    # test 'window lead' do
-    #   assert_equal [["David", "Author", "Stay Home", "A Modest Proposal"],
-    #     ["Mary", "Author", "Connecting The Dots", "Stay Home"],
-    #     ["Steve", "Human", nil, "Connecting The Dots"]],
-    #     Essay.window(lead: { value: :name, order: { writer_id: :asc }, over: { partition: :writer_type }, as: "next_essay" })
-    #          .order(:writer_type, :writer_id).map { |p| [p.writer_id, p.writer_type, p.next_essay, p.name] }
-    # end
-
-    # test 'window first value' do
-    #   assert_equal [["David", "Author", "A Modest Proposal"],
-    #     ["Mary", "Author", "Stay Home"],
-    #     ["Steve", "Human", "Connecting The Dots"]],
-    #     Essay.window(first_value: { value: :name, over: { partition: :writer_type } }, as: "first_essay")
-    #          .order(:writer_type, :writer_id).map { |p| [p.writer_id, p.writer_type, p.first_essay] }
-    # end
-
-    # test 'window last value' do
-    #   assert_equal [["David", "Author", "A Modest Proposal"],
-    #     ["Mary", "Author", "Stay Home"],
-    #     ["Steve", "Human", "Connecting The Dots"]],
-    #     Essay.window(last_value: { value: :name, over: { partition: :writer_type } }, as: "last_essay")
-    #          .order(:writer_type, :writer_id).map { |p| [p.writer_id, p.writer_type, p.last_essay] }
-    # end
-
     def test_where_with_tuple_syntax
       first_topic = topics(:first)
       third_topic = topics(:third)
@@ -563,6 +501,99 @@ module ActiveRecord
       post = Post.first
       Comment.create!(label: :default, post: post, body: "Nice weather today")
       assert_equal [post], Post.joins(:comments).where(comments: { label: :default, body: "Nice weather today" }).to_a
+    end
+
+    def test_window_row_number
+      assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
+        Essay.window(row_number: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" })
+             .map { |p| [p.writer_id, p.writer_type, p.rating] }
+    end
+
+    def test_window_rank
+      assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
+        Essay.window(rank: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" })
+             .map { |p| [p.writer_id, p.writer_type, p.rating] }
+    end
+
+    def test_window_dense_rank
+      assert_equal [["David", "Author", 1], ["Mary", "Author", 2], ["Steve", "Human", 1]],
+        Essay.window(dense_rank: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" })
+             .map { |p| [p.writer_id, p.writer_type, p.rating] }
+    end
+
+    def test_window_percent_rank
+      assert_equal [["David", "Author", 0.0], ["Mary", "Author", 1.0], ["Steve", "Human", 0.0]],
+        Essay.window(percent_rank: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" })
+             .map { |p| [p.writer_id, p.writer_type, p.rating] }
+    end
+
+    def test_window_lead
+      assert_equal [
+        ["David", "Author", "Stay Home", "A Modest Proposal"],
+        ["Mary", "Author", nil, "Stay Home"],
+        ["Steve", "Human", nil, "Connecting The Dots"]
+      ],
+        Essay.window(lead: { value: :name, partition: :writer_type, order: { writer_id: :asc }, as: "next_essay" })
+             .map { |p| [p.writer_id, p.writer_type, p.next_essay, p.name] }
+    end
+
+    def test_window_first_value
+      assert_equal [
+        ["David", "Author", "A Modest Proposal"],
+        ["Mary", "Author", "A Modest Proposal"],
+        ["Steve", "Human", "Connecting The Dots"]
+      ],
+        Essay.window(first_value: { value: :name, partition: :writer_type, as: "first_essay" })
+             .map { |p| [p.writer_id, p.writer_type, p.first_essay] }
+    end
+
+    def test_window_last_value
+      assert_equal [
+        ["David", "Author", "Stay Home"],
+        ["Mary", "Author", "Stay Home"],
+        ["Steve", "Human", "Connecting The Dots"]],
+        Essay.window(last_value: { value: :name, partition: :writer_type, as: "last_essay" })
+             .map { |p| [p.writer_id, p.writer_type, p.last_essay] }
+    end
+
+    def test_window_average
+      assert_equal [["David", "Author", 13.0], ["Mary", "Author", 13.0], ["Steve", "Human", 19.0]],
+        Essay.window(avg: { value: Arel.sql("length(name)"), partition: :writer_type, as: "avg_writer_id" })
+             .map { |p| [p.writer_id, p.writer_type, p.avg_writer_id] }
+    end
+
+    def test_window_function_with_no_options
+      assert_equal [["Steve", "Human", 1], ["David", "Author", 2], ["Mary", "Author", 3]],
+        Essay.window(:row_number)
+             .map { |p| [p.writer_id, p.writer_type, p.row_number] }
+    end
+
+    def test_window_combined_functions
+      assert_equal [["David", "Author", 1, 1], ["Mary", "Author", 2, 2], ["Steve", "Human", 1, 1]],
+        Essay.window(
+          row_number: { partition: :writer_type, order: { writer_id: :asc }, as: "row_number" },
+          rank: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" }
+        ).map { |p| [p.writer_id, p.writer_type, p.row_number, p.rating] }
+    end
+
+    def test_window_function_on_association
+      assert_equal [
+        ["Welcome to the weblog", "Thank you again for the welcome", 1],
+        ["Welcome to the weblog", "Thank you for the welcome", 2],
+        ["So I was thinking", "Don't think too hard", 1],
+        ["sti comments", "Normal type", 1],
+        ["sti comments", "Special type", 2],
+        ["sti comments", "Special type 2", 3],
+        ["sti comments", "Sub special comment", 4],
+        ["sti comments", "Very Special type", 5],
+        ["sti me", "Normal type", 1],
+        ["sti me", "Special Type", 2],
+        ["sti me", "afrase", 3],
+        ["eager loading with OR'd conditions", "go wild", 1]
+      ],
+        Comment.joins(:post).window(
+          row_number: { partition: "posts.id", order: { body: :asc }, as: "rating" }
+        ).map { |p| [p.post.title, p.body, p.rating] }
     end
   end
 end
