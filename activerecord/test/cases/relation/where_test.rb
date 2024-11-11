@@ -568,6 +568,12 @@ module ActiveRecord
              .map { |p| [p.writer_id, p.writer_type, p.row_number] }
     end
 
+    def test_window_function_combine_with_no_options
+      assert_equal [["Steve", "Human", 1, 1], ["David", "Author", 2, 1], ["Mary", "Author", 3, 1]],
+        Essay.window(:row_number, :rank)
+             .map { |p| [p.writer_id, p.writer_type, p.row_number, p.rank] }
+    end
+
     def test_window_combined_functions
       assert_equal [["David", "Author", 1, 1], ["Mary", "Author", 2, 2], ["Steve", "Human", 1, 1]],
         Essay.window(
