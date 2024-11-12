@@ -438,16 +438,12 @@ module ActiveRecord
 
         arel.project(window_values) unless window_values.empty?
       end
+
       # TODO:
       # Fragment
-      # Docs
-      # https://www.postgresql.org/docs/current/functions-window.html Test for all functions
-      # More tests
-      # More examples
 
-      # Defines a window function for the relation.
+      # Window functions provide the ability to perform calculations across sets of rows that are related to the current query row.
       #
-      # A window function performs a calculation across a set of table rows that are somehow related to the current row.
       # This is comparable to the type of calculation that can be done with an aggregate function. However, unlike
       # aggregate functions, window functions do not cause rows to become grouped into a single output row — the rows
       # retain their separate identities. Behind the scenes, window functions are implemented using the SQL `OVER` clause.
@@ -470,13 +466,15 @@ module ActiveRecord
       #
       # @example Using window function with joins
       #   Post.joins(:comments).window(row_number: { partition: :author_id, order: :created_at, as: :rank })
-      #   # => SELECT "posts".*, row_number() OVER (PARTITION BY author_id ORDER BY "created_at" ASC) AS rank FROM "posts" INNER JOIN "comments" ON "comments"."post_id" = "posts"."id"
+      #   # => SELECT "posts".*, row_number() OVER (PARTITION BY author_id ORDER BY "created_at" ASC) AS rank FROM "posts"
+      #   #    INNER JOIN "comments" ON "comments"."post_id" = "posts"."id"
       #
       # @example Using window function with joins and custom partition and order
       #   Comment.joins(:post).window(
       #     row_number: { partition: "posts.id", order: { "posts.author_id": :asc }, as: "rating" }
       #   )
-      #   # => SELECT "comments".*, row_number() OVER (PARTITION BY posts.id ORDER BY posts.author_id ASC) AS rating FROM "comments" INNER JOIN "posts" ON "posts"."id" = "comments"."post_id"
+      #   # => SELECT "comments".*, row_number() OVER (PARTITION BY posts.id ORDER BY posts.author_id ASC) AS rating FROM "comments"
+      #   #    INNER JOIN "posts" ON "posts"."id" = "comments"."post_id"
       #
       # @example Using window function with select and from
       #   Essay.select(:writer_id, :rating).from(Essay.window(
@@ -488,17 +486,12 @@ module ActiveRecord
       #   #      rank() OVER (PARTITION BY writer_type ORDER BY writer_id ASC) AS rating FROM "essays"
       #   #   ) subquery WHERE rating = 1
       #
-      # @param args [Array<Hash, Symbol>] the window function definitions
-      # @return [ActiveRecord::Relation] the relation with the window function applied
       def window(*args)
         args = process_window_args(args)
         spawn.window!(*args)
       end
 
-      # Defines a window function for the relation in place.
-      # @param args [Array<Hash, Symbol>] the window function definitions
-      # @return [ActiveRecord::Relation] the relation with the window function applied
-      def window!(*args)
+      def window!(*args) # :nodoc:
         self.window_values |= args.map do |name, options|
           build_window_function(name, options || {})
         end
@@ -506,11 +499,7 @@ module ActiveRecord
         self
       end
 
-      # Builds the window function for the given name and options.
-      # @param name [Symbol] the name of the window function
-      # @param options [Hash] the options for the window function
-      # @return [Arel::Nodes::NamedFunction] the Arel node representing the window function
-      def build_window_function(name, options)
+      def build_window_function(name, options) # :nodoc:
         window = Arel::Nodes::Window.new
 
         apply_partition(window, options[:partition])
@@ -521,11 +510,7 @@ module ActiveRecord
         Arel::Nodes::NamedFunction.new(name.to_s, expressions).over(window).as((options[:as] || name).to_s)
       end
 
-      # Applies the partition clause to the window.
-      # @param window [Arel::Nodes::Window] the Arel window node
-      # @param partition [Symbol, String] the partition column
-      # @raise [ArgumentError] if the partition is not a Symbol or String
-      def apply_partition(window, partition)
+      def apply_partition(window, partition) # :nodoc:
         return unless partition
 
         unless partition.is_a?(Symbol) || partition.is_a?(String)
@@ -535,21 +520,14 @@ module ActiveRecord
         window.partition(partition)
       end
 
-      # Applies the order clause to the window.
-      # @param window [Arel::Nodes::Window] the Arel window node
-      # @param order [Symbol, String, Array<Symbol, String>] the order columns
-      def apply_order(window, order)
+      def apply_order(window, order) # :nodoc:
         return unless order
 
         order_options = prepare_window_order_args(order)
         window.order(order_options)
       end
 
-      # Extracts the window value expressions.
-      # @param value [Symbol, String, Array<Symbol, String>] the window value
-      # @return [Array<Arel::Nodes::SqlLiteral>] the Arel nodes representing the window value
-      # @raise [ArgumentError] if the value is not a valid type
-      def extract_window_value(value)
+      def extract_window_value(value) # :nodoc:
         case value
         when Symbol, String
           [Arel::Nodes::SqlLiteral.new(value.to_s)]
@@ -562,25 +540,17 @@ module ActiveRecord
         end
       end
 
-      # Prepares the order arguments for the window function.
-      # @param args [Array<Symbol, String>] the order arguments
-      # @return [Array<Symbol, String>] the sanitized and preprocessed order arguments
-      def prepare_window_order_args(*args)
+      def prepare_window_order_args(*args) # :nodoc:
         sanitize_order_arguments(args)
         preprocess_order_args(args)
         args
       end
 
-      VALID_OPTIONS = [:value, :partition, :order, :frame, :as].freeze # TODO: Maybe unify value => expression
-
-      # Processes the window function arguments.
-      # @param args [Array<Hash, Symbol>] the window function arguments
-      # @return [Array<Hash, Symbol>] the processed window function arguments
-      # @raise [ArgumentError] if unsupported options are provided
-      def process_window_args(args)
+      VALID_WINDOW_OPTIONS = [:value, :partition, :order, :frame, :as].freeze
+      def process_window_args(args) # :nodoc:
         args.flat_map do |element|
           if element.is_a?(Hash)
-            unsupported_keys = element.values.flat_map(&:keys) - VALID_OPTIONS
+            unsupported_keys = element.values.flat_map(&:keys) - VALID_WINDOW_OPTIONS
             unless unsupported_keys.empty?
               raise ArgumentError, "Unsupported options: #{unsupported_keys.join(', ')}"
             end
