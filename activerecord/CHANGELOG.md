@@ -1,4 +1,12 @@
-*   Add support for enabling or disabling transactional tests per database.
+* Added window functions, allowing for more advanced SQL queries.
+
+    ```ruby
+    Post.window(row_number: { partition: :author_id, order: :created_at, as: :rating })
+    ```
+
+    *Andrei Andriichuk*
+
+* Add support for enabling or disabling transactional tests per database.
 
     A test class can now override the default `use_transactional_tests` setting
     for individual databases, which can be useful if some databases need their

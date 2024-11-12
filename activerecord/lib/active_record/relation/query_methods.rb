@@ -449,8 +449,8 @@ module ActiveRecord
       # retain their separate identities. Behind the scenes, window functions are implemented using the SQL `OVER` clause.
       #
       # @example Using row_number window function
-      #   Post.window(row_number: { partition: :author_id, order: :created_at, as: :rank })
-      #   # => SELECT "posts".*, row_number() OVER (PARTITION BY author_id ORDER BY "created_at" ASC) AS rank FROM "posts"
+      #   Post.window(row_number: { partition: :author_id, order: :created_at, as: :rating })
+      #   # => SELECT "posts".*, row_number() OVER (PARTITION BY author_id ORDER BY "created_at" ASC) AS rating FROM "posts"
       #
       # @example Using avg window function with custom function value
       #   Post.window(avg: { value: Arel.sql("length(title)"), partition: :author_id, as: :avg_title_length })
