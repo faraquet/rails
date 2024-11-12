@@ -68,6 +68,13 @@ module ActiveRecord
              .map { |p| [p.writer_id, p.writer_type, p.avg_writer_id] }
     end
 
+    def test_window_sum
+      # TODO: Add Fragments
+      assert_equal [["David", "Author", 1790021451], ["Mary", "Author", 1790021451], ["Steve", "Human", 606697136]],
+        Essay.window(sum: { value: :id, partition: :writer_type, as: "sum_writer_id" })
+             .map { |p| [p.writer_id, p.writer_type, p.sum_writer_id] }
+    end
+
     def test_window_function_with_no_options
       assert_equal [["Steve", "Human", 1], ["David", "Author", 2], ["Mary", "Author", 3]],
         Essay.window(:row_number)
