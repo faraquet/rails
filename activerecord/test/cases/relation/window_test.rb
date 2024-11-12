@@ -129,6 +129,13 @@ module ActiveRecord
         ).map { |p| [p.post.title, p.body, p.rating] }
     end
 
+    def test_window_function_array_partition
+      assert_equal [["David", "Author", 1], ["Mary", "Author", 1], ["Steve", "Human", 1]],
+        Essay.window(rank: { partition: [:writer_type, :name], order: { writer_id: :asc }, as: "rating" })
+             .map { |p| [p.writer_id, p.writer_type, p.rating] }
+    end
+
+
     def test_window_creates_window_function_with_alias
       relation = Post.all
       result = relation.window(rank: { partition: :author_id, order: :created_at, as: :rank })

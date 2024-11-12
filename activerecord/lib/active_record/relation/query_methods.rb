@@ -431,8 +431,6 @@ module ActiveRecord
     end
 
     module Window
-      # Builds the SELECT statement for the relation, including any window functions.
-      # @param arel [Arel::SelectManager] the Arel select manager
       def build_select(arel)
         super
 
@@ -486,6 +484,17 @@ module ActiveRecord
       #   #      rank() OVER (PARTITION BY writer_type ORDER BY writer_id ASC) AS rating FROM "essays"
       #   #   ) subquery WHERE rating = 1
       #
+      # @example Using window function with custom frame
+      #   Post.window(sum: { value: :views, partition: :author_id, order: :created_at, frame: { range: :unbounded, preceding: :current_row }, as: :total_views })
+      #   # => SELECT "posts".*, sum(views) OVER (PARTITION BY author_id ORDER BY "created_at" ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS total_views FROM "posts"
+      #
+      # @example Using window function with multiple partitions
+      #   Post.window(row_number: { partition: [:author_id, :category_id], order: :created_at, as: :rank })
+      #   # => SELECT "posts".*, row_number() OVER (PARTITION BY author_id, category_id ORDER BY "created_at" ASC) AS rank FROM "posts"
+      #
+      # @example Using window function with custom alias
+      #   Post.window(row_number: { partition: :author_id, order: :created_at, as: :custom_rank })
+      #   # => SELECT "posts".*, row_number() OVER (PARTITION BY author_id ORDER BY "created_at" ASC) AS custom_rank FROM "posts"
       def window(*args)
         args = process_window_args(args)
         spawn.window!(*args)
@@ -513,11 +522,11 @@ module ActiveRecord
       def apply_partition(window, partition) # :nodoc:
         return unless partition
 
-        unless partition.is_a?(Symbol) || partition.is_a?(String)
+        unless partition.is_a?(Symbol) || partition.is_a?(String) || partition.is_a?(Array)
           raise ArgumentError, "Invalid argument for window partition"
         end
 
-        window.partition(partition)
+        window.partition(Array(partition).map { |p| Arel.sql(p.to_s) })
       end
 
       def apply_order(window, order) # :nodoc:
