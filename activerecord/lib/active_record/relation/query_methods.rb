@@ -432,9 +432,9 @@ module ActiveRecord
 
     module Window
       # TODO:
-      # Fix order args
       # Fragment
       # Docs
+      # https://www.postgresql.org/docs/current/functions-window.html Test for all functions
       # More tests
       # More examples
       # Guard against invalid arguments
@@ -483,6 +483,8 @@ module ActiveRecord
           [Arel::Nodes::SqlLiteral.new(value.to_s)]
         when nil
           []
+        when Array
+          value.map { |v| Arel::Nodes::SqlLiteral.new(v.to_s) }
         else
           raise ArgumentError, "Invalid argument for window value"
         end

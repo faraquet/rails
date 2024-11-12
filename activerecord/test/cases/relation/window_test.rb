@@ -88,10 +88,18 @@ module ActiveRecord
         ).map { |p| [p.writer_id, p.writer_type, p.row_number, p.rating] }
     end
 
-    def test_window_accepts_arel_nodes # TODO: Fix this test
-      assert_equal [["David", "Author", 13.0], ["Mary", "Author", 13.0], ["Steve", "Human", 19.0]],
-        Essay.window(avg: { value: [Arel.sql("length(name)")], partition: :writer_type, as: "avg_writer_id" })
-             .map { |p| [p.writer_id, p.writer_type, p.avg_writer_id] }
+    def test_window_works_with_select_from
+      assert_equal [["David", 1], ["Steve", 1]],
+        Essay.select(:writer_id, :rating).from(Essay.window(
+          row_number: { partition: :writer_type, order: { writer_id: :asc }, as: "row_number" },
+          rank: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" }
+        )).where("rating = 1").map { |p| [p.writer_id, p.rating] }
+    end
+
+    def test_window_accepts_arel_arrays
+      assert_equal [["David", "Author", 921819970], ["Mary", "Author", 921819970], ["Steve", "Human", nil]],
+        Essay.window(nth_value: { value: [:id, 2], partition: :writer_type, as: "nth_value" })
+             .map { |p| [p.writer_id, p.writer_type, p.nth_value] }
     end
 
     def test_window_function_partition_and_order_on_association
