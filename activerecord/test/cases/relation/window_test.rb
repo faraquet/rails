@@ -88,38 +88,36 @@ module ActiveRecord
         ).map { |p| [p.writer_id, p.writer_type, p.row_number, p.rating] }
     end
 
-    def test_window_function_on_association
+    def test_window_function_partition_and_order_on_association
       assert_equal [
-        ["Welcome to the weblog", "Thank you again for the welcome", 1],
-        ["Welcome to the weblog", "Thank you for the welcome", 2],
+        ["Welcome to the weblog", "Thank you for the welcome", 1],
+        ["Welcome to the weblog", "Thank you again for the welcome", 2],
         ["So I was thinking", "Don't think too hard", 1],
-        ["sti comments", "Normal type", 1],
+        ["sti comments", "Very Special type", 1],
         ["sti comments", "Special type", 2],
         ["sti comments", "Special type 2", 3],
-        ["sti comments", "Sub special comment", 4],
-        ["sti comments", "Very Special type", 5],
+        ["sti comments", "Normal type", 4],
+        ["sti comments", "Sub special comment", 5],
         ["sti me", "Normal type", 1],
         ["sti me", "Special Type", 2],
         ["sti me", "afrase", 3],
         ["eager loading with OR'd conditions", "go wild", 1]
       ],
         Comment.joins(:post).window(
-          row_number: { partition: "posts.id", order: { body: :asc }, as: "rating" }
+          row_number: { partition: "posts.id", order: { "posts.author_id": :asc }, as: "rating" }
         ).map { |p| [p.post.title, p.body, p.rating] }
     end
 
     def test_window_creates_window_function_with_alias
       relation = Post.all
       result = relation.window(rank: { partition: :author_id, order: :created_at, as: :rank })
-      # FIXME: This is not the expected result
-      # We should have ordered by created_at
-      assert_equal "SELECT \"posts\".*, rank() OVER (PARTITION BY author_id) AS rank FROM \"posts\"", result.to_sql
+      assert_equal "SELECT \"posts\".*, rank() OVER (PARTITION BY author_id ORDER BY \"created_at\" ASC) AS rank FROM \"posts\"", result.to_sql
     end
 
     def test_window_creates_window_function_with_value
       relation = Post.all
-      result = relation.window(rank: { value: :id, partition: :author_id, order: :created_at })
-      assert_equal "SELECT \"posts\".*, rank(id) OVER (PARTITION BY author_id) AS rank FROM \"posts\"", result.to_sql
+      result = relation.window(rank: { value: :id, partition: :author_id, order: { created_at: :desc } })
+      assert_equal "SELECT \"posts\".*, rank(id) OVER (PARTITION BY author_id ORDER BY \"created_at\" DESC) AS rank FROM \"posts\"", result.to_sql
     end
 
     def test_window_creates_window_function_without_partition_or_order
@@ -135,7 +133,7 @@ module ActiveRecord
       end
     end
 
-    # ### TODO: Fix all under this line
+    ### TODO: Fix all under this line
     # def test_prepare_window_order_args_handles_single_argument
     #   result = prepare_window_order_args(:name)
     #   assert_equal [:name], result

@@ -489,15 +489,20 @@ module ActiveRecord
       end
 
       def prepare_window_order_args(*args)
-        # TODO: Move to Arel?
-        args = sanitize_order_arguments(args)
+        sanitize_order_arguments(args)
         preprocess_order_args(args)
+        args
       end
 
+      VALID_OPTIONS = [:value, :partition, :order, :frame, :as].freeze # TODO: Maybe unify value => expression
       def process_window_args(args)
-        # TODO: List of unsupported options check
         args.flat_map do |element|
           if element.is_a?(Hash)
+            unsupported_keys = element.values.flat_map(&:keys) - VALID_OPTIONS
+            unless unsupported_keys.empty?
+              raise ArgumentError, "Unsupported options: #{unsupported_keys.join(', ')}"
+            end
+
             element.map { |k, v| [k, v] }
           else
             [element]
@@ -2162,7 +2167,6 @@ module ActiveRecord
 
         references = column_references(order_args)
         self.references_values |= references unless references.empty?
-
         # if a symbol is given we prepend the quoted table name
         order_args.map! do |arg|
           case arg
