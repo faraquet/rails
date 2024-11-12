@@ -550,7 +550,9 @@ module ActiveRecord
       end
 
       def prepare_window_order_args(*args) # :nodoc:
-        sanitize_order_arguments(args)
+        check_if_method_has_arguments!(__callee__, args) do
+          sanitize_order_arguments(args)
+        end
         preprocess_order_args(args)
         args
       end

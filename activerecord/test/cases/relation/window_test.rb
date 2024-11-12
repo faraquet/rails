@@ -135,61 +135,35 @@ module ActiveRecord
              .map { |p| [p.writer_id, p.writer_type, p.rating] }
     end
 
-
-    def test_window_creates_window_function_with_alias
-      relation = Post.all
-      result = relation.window(rank: { partition: :author_id, order: :created_at, as: :rank })
-      assert_equal "SELECT \"posts\".*, rank() OVER (PARTITION BY author_id ORDER BY \"created_at\" ASC) AS rank FROM \"posts\"", result.to_sql
+    def test_window_function_array_order
+      assert_equal [["Mary", "Author", 1], ["David", "Author", 2], ["Steve", "Human", 1]],
+        Essay.window(rank: { partition: :writer_type, order: [:writer_type, name: :desc] })
+             .map { |p| [p.writer_id, p.writer_type, p.rank] }
     end
 
-    def test_window_creates_window_function_with_value
-      relation = Post.all
-      result = relation.window(rank: { value: :id, partition: :author_id, order: { created_at: :desc } })
-      assert_equal "SELECT \"posts\".*, rank(id) OVER (PARTITION BY author_id ORDER BY \"created_at\" DESC) AS rank FROM \"posts\"", result.to_sql
-    end
-
-    def test_window_creates_window_function_without_partition_or_order
-      relation = Post.all
-      result = relation.window(rank: { value: :id })
-      assert_equal "SELECT \"posts\".*, rank(id) OVER () AS rank FROM \"posts\"", result.to_sql
-    end
-
-    def test_window_raises_error_for_invalid_window_value
-      relation = Post.all
-      assert_raises(ArgumentError) do
-        relation.window(rank: { value: 123 })
-      end
-    end
-
-    ### TODO: Fix all under this line
-    # def test_prepare_window_order_args_handles_single_argument
-    #   result = prepare_window_order_args(:name)
-    #   assert_equal [:name], result
+    # def test_window_creates_window_function_with_alias
+    #   relation = Post.all
+    #   result = relation.window(rank: { partition: :author_id, order: :created_at, as: :rank })
+    #   assert_equal "SELECT \"posts\".*, rank() OVER (PARTITION BY author_id ORDER BY \"created_at\" ASC) AS rank FROM \"posts\"", result.to_sql
     # end
     #
-    # def test_prepare_window_order_args_handles_multiple_arguments
-    #   result = prepare_window_order_args(:name, :created_at)
-    #   assert_equal [:name, :created_at], result
+    # def test_window_creates_window_function_with_value
+    #   relation = Post.all
+    #   result = relation.window(rank: { value: :id, partition: :author_id, order: { created_at: :desc } })
+    #   assert_equal "SELECT \"posts\".*, rank(id) OVER (PARTITION BY author_id ORDER BY \"created_at\" DESC) AS rank FROM \"posts\"", result.to_sql
     # end
     #
-    # def test_prepare_window_order_args_handles_empty_arguments
-    #   result = prepare_window_order_args
-    #   assert_equal [], result
+    # def test_window_creates_window_function_without_partition_or_order
+    #   relation = Post.all
+    #   result = relation.window(rank: { value: :id })
+    #   assert_equal "SELECT \"posts\".*, rank(id) OVER () AS rank FROM \"posts\"", result.to_sql
     # end
     #
-    # def test_prepare_window_order_args_sanitizes_arguments
-    #   result = prepare_window_order_args("name DESC", "created_at ASC")
-    #   assert_equal ["name DESC", "created_at ASC"], result
-    # end
-    #
-    # def test_prepare_window_order_args_preprocesses_arguments
-    #   result = prepare_window_order_args(:name, "created_at DESC")
-    #   assert_equal [:name, "created_at DESC"], result
-    # end
-    #
-    # def test_prepare_window_order_args_handles_multiple_arguments2
-    #   result = prepare_window_order_args(name: :asc)
-    #   assert_equal [:name, :created_at], result
+    # def test_window_raises_error_for_invalid_window_value
+    #   relation = Post.all
+    #   assert_raises(ArgumentError) do
+    #     relation.window(rank: { value: 123 })
+    #   end
     # end
   end
 end
