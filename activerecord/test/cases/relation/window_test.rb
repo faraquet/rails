@@ -88,6 +88,12 @@ module ActiveRecord
         ).map { |p| [p.writer_id, p.writer_type, p.row_number, p.rating] }
     end
 
+    def test_window_accepts_arel_nodes # TODO: Fix this test
+      assert_equal [["David", "Author", 13.0], ["Mary", "Author", 13.0], ["Steve", "Human", 19.0]],
+        Essay.window(avg: { value: [Arel.sql("length(name)")], partition: :writer_type, as: "avg_writer_id" })
+             .map { |p| [p.writer_id, p.writer_type, p.avg_writer_id] }
+    end
+
     def test_window_function_partition_and_order_on_association
       assert_equal [
         ["Welcome to the weblog", "Thank you for the welcome", 1],
