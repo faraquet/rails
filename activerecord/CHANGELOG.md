@@ -1,4 +1,4 @@
-* Added window functions, allowing for more advanced SQL queries.
+*   Added window functions, allowing for more advanced SQL queries.
 
     ```ruby
     Post.window(row_number: { partition: :author_id, order: :created_at, as: :rating })
@@ -6,7 +6,7 @@
 
   *Andrei Andriichuk*
 
-* Fix `sum` when performing a grouped calculation.
+*   Fix `sum` when performing a grouped calculation.
 
     `User.group(:friendly).sum` no longer worked. This is fixed.
 
