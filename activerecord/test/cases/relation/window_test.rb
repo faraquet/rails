@@ -143,6 +143,36 @@ module ActiveRecord
       ).pluck(:event_id, :name, :ticket_price)
     end
 
+    def test_cume_dist
+      assert_equal [
+        [1, "Alice", 15, 0.6666666666666666],
+        [1, "Bob", 15, 0.6666666666666666],
+        [1, "Charlie", 20, 1.0],
+        [2, "David", 25, 1.0],
+        [2, "Eve", 25, 1.0],
+        [3, "Grace", 10, 0.6666666666666666],
+        [3, "Frank", 10, 0.6666666666666666],
+        [3, "Hannah", 15, 1.0]
+      ], Attendee.window(
+        cume_dist: { partition: :event_id, order: :ticket_price }
+      ).pluck(:event_id, :name, :ticket_price)
+    end
+
+    def test_lag
+      assert_equal [
+        [1, "Alice", 15, nil],
+        [1, "Bob", 15, "Alice"],
+        [1, "Charlie", 20, "Bob"],
+        [2, "David", 25, nil],
+        [2, "Eve", 25, "David"],
+        [3, "Grace", 10, nil],
+        [3, "Frank", 10, "Grace"],
+        [3, "Hannah", 15, "Frank"]
+      ], Attendee.window(
+        lag: { value: :name, partition: :event_id, order: :ticket_price }
+      ).pluck(:event_id, :name, :ticket_price)
+    end
+
     # TODO: ADD MORE FUNTIONS
     def test_function_with_no_options
       assert_equal [
@@ -295,6 +325,36 @@ module ActiveRecord
       ], Attendee.window(
         row_number: { partition: Arel.sql("length(name)") }
       ).pluck(:name)
+    end
+
+    def test_arel_order_argument
+      assert_equal [
+        ["Bob", 1],
+        ["Eve", 2],
+        ["David", 3],
+        ["Alice", 4],
+        ["Grace", 5],
+        ["Frank", 6],
+        ["Hannah", 7],
+        ["Charlie", 8]
+      ], Attendee.window(
+        row_number: { order: Arel.sql("length(name)") }
+      ).pluck(:name)
+    end
+
+    def test_framing
+      assert_equal [
+        [1, "Charlie", 20, 1],
+        [2, "David", 25, 2],
+        [3, "Hannah", 15, 3],
+        [1, "Alice", 15, 4],
+        [1, "Bob", 15, 5],
+        [2, "Eve", 25, 6],
+        [3, "Grace", 10, 7],
+        [3, "Frank", 10, 8]
+      ], Attendee.window(
+        row_number: { frame: { range: :unbounded, preceding: :current_row } }
+      ).pluck(:event_id, :name, :ticket_price)
     end
   end
 end

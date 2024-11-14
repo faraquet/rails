@@ -513,15 +513,16 @@ module ActiveRecord
       def build_window_function(name, options) # :nodoc:
         window = Arel::Nodes::Window.new
 
-        apply_partition(window, options[:partition])
-        apply_order(window, options[:order])
+        apply_window_partition(window, options[:partition])
+        apply_window_order(window, options[:order])
+        apply_window_frame(window, options[:frame]) if options[:frame]
 
         expressions = extract_window_value(options[:value])
 
         Arel::Nodes::NamedFunction.new(name.to_s, expressions).over(window).as((options[:as] || name).to_s)
       end
 
-      def apply_partition(window, partition) # :nodoc:
+      def apply_window_partition(window, partition) # :nodoc:
         return unless partition
 
         unless partition.is_a?(Symbol) || partition.is_a?(String) || partition.is_a?(Array)
@@ -531,11 +532,19 @@ module ActiveRecord
         window.partition(Array(partition).map { |p| Arel.sql(p.to_s) })
       end
 
-      def apply_order(window, order) # :nodoc:
+      def apply_window_order(window, order) # :nodoc:
         return unless order
 
         order_options = prepare_window_order_args(order)
         window.order(order_options)
+      end
+
+      def apply_window_frame(window, frame_options)
+        # frame = Arel::Nodes::Window::Frame.new(frame_options[:range] || :rows)
+        # frame.exclusions = frame_options[:exclusions] if frame_options[:exclusions]
+        # frame.start = frame_options[:start] if frame_options[:start]
+        # frame.end = frame_options[:end] if frame_options[:end]
+        window.frame(Arel.sql "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW")
       end
 
       def extract_window_value(value) # :nodoc:
