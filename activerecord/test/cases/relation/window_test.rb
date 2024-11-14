@@ -160,6 +160,19 @@ module ActiveRecord
       ], Attendee.window(:row_number).pluck(:name)
     end
 
+    def test_function_with_alias
+      assert_equal [
+        ["Charlie", 1],
+        ["David", 2],
+        ["Hannah", 3],
+        ["Alice", 4],
+        ["Bob", 5],
+        ["Eve", 6],
+        ["Grace", 7],
+        ["Frank", 8]
+      ], Attendee.window(row_number: { as: "rating" }).map { |a| [a.name, a.rating] }
+    end
+
     def test_function_with_partition_only
       assert_equal [
         [1, "Charlie", 1],
