@@ -1,12 +1,10 @@
-* Added window functions, allowing for more advanced SQL queries.
+*   Fix `sum` when performing a grouped calculation.
 
-    ```ruby
-    Post.window(row_number: { partition: :author_id, order: :created_at, as: :rating })
-    ```
+    `User.group(:friendly).sum` no longer worked. This is fixed.
 
-    *Andrei Andriichuk*
+    *Edouard Chin*
 
-* Add support for enabling or disabling transactional tests per database.
+*   Add support for enabling or disabling transactional tests per database.
 
     A test class can now override the default `use_transactional_tests` setting
     for individual databases, which can be useful if some databases need their
