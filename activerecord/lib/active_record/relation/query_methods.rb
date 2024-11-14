@@ -502,6 +502,58 @@ module ActiveRecord
         spawn.window!(*args)
       end
 
+      # TODO: Maybe we can use this to implement the window function DSL
+      # TODO: same as wherechains
+      # Attendee.window do
+      #   row_number.partition_by(:event_id).order_by(:ticket_price)
+      #   rank.partition_by(:event_id).order_by(:ticket_price)
+      # end
+      #
+      # # Define the window function DSL
+      # def self.window(&block)
+      #   WindowFunctionBuilder.new(self).instance_eval(&block)
+      # end
+      #
+      # class WindowFunctionBuilder
+      #   def initialize(model)
+      #     @model = model
+      #     @window_functions = []
+      #   end
+      #
+      #   def row_number
+      #     WindowFunction.new(:row_number)
+      #   end
+      #
+      #   def rank
+      #     WindowFunction.new(:rank)
+      #   end
+      #
+      #   # Method to add each window function with its specified params
+      #   def add_window_function(func)
+      #     @window_functions << func
+      #   end
+      #
+      #   class WindowFunction
+      #     def initialize(function_name)
+      #       @function_name = function_name
+      #       @partition_by = nil
+      #       @order_by = nil
+      #     end
+      #
+      #     def partition_by(column)
+      #       @partition_by = column
+      #       self
+      #     end
+      #
+      #     def order_by(column)
+      #       @order_by = column
+      #       self
+      #     end
+      #
+      #     def to_sql
+      #       "#{@function_name}() OVER (PARTITION BY #{@partition_by} ORDER BY #{@order_by})"
+      #     end
+      #   end
       def window!(*args) # :nodoc:
         self.window_values |= args.map do |name, options|
           build_window_function(name, options || {})
