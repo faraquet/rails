@@ -438,7 +438,9 @@ module ActiveRecord
       end
 
       # TODO:
-      # Fragment
+      # Fragments
+      # Docs
+      #
 
       # Window functions provide the ability to perform calculations across sets of rows that are related to the current query row.
       #
