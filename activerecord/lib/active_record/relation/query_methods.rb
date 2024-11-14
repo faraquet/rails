@@ -2230,6 +2230,7 @@ module ActiveRecord
 
         references = column_references(order_args)
         self.references_values |= references unless references.empty?
+
         # if a symbol is given we prepend the quoted table name
         order_args.map! do |arg|
           case arg

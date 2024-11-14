@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
 require "cases/helper"
-require "models/essay"
-require "models/post"
-require "models/comment"
 require "models/event"
 require "models/attendee"
 
