@@ -4,193 +4,287 @@ require "cases/helper"
 require "models/essay"
 require "models/post"
 require "models/comment"
+require "models/event"
+require "models/attendee"
 
 module ActiveRecord
   class WindowTest < ActiveRecord::TestCase
-    fixtures :essays, :comments, :posts
+    fixtures :events, :attendees
 
-    def test_window_row_number
+    def test_row_number
       assert_equal [
-        ["David", "Author", 1],
-        ["Mary", "Author", 2],
-        ["Steve", "Human", 1]
-      ], Essay
-           .window(row_number: { partition: :writer_type })
-           .map { |p| [p.writer_id, p.writer_type, p.row_number] }
+        [1, "Alice", 15, 1],
+        [1, "Bob", 15, 2],
+        [1, "Charlie", 20, 3],
+        [2, "David", 25, 1],
+        [2, "Eve", 25, 2],
+        [3, "Grace", 10, 1],
+        [3, "Frank", 10, 2],
+        [3, "Hannah", 15, 3]
+      ], Attendee.window(
+        row_number: { partition: :event_id, order: :ticket_price }
+      ).pluck(:event_id, :name, :ticket_price)
     end
 
-    def test_window_rank
+    def test_rank
       assert_equal [
-        ["David", "Author", 1],
-        ["Mary", "Author", 1],
-        ["Steve", "Human", 1]
-      ], Essay
-           .window(rank: { partition: :writer_type })
-           .map { |p| [p.writer_id, p.writer_type, p.rank] }
+        [1, "Alice", 15, 1],
+        [1, "Bob", 15, 1],
+        [1, "Charlie", 20, 3],
+        [2, "David", 25, 1],
+        [2, "Eve", 25, 1],
+        [3, "Grace", 10, 1],
+        [3, "Frank", 10, 1],
+        [3, "Hannah", 15, 3]
+      ], Attendee.window(
+        rank: { partition: :event_id, order: :ticket_price }
+      ).pluck(:event_id, :name, :ticket_price)
     end
 
-    def test_window_dense_rank
+    def test_dense_rank
       assert_equal [
-        ["David", "Author", 1],
-        ["Mary", "Author", 2],
-        ["Steve", "Human", 3]
-      ], Essay
-           .window(dense_rank: { order: { writer_id: :asc } })
-           .map { |p| [p.writer_id, p.writer_type, p.dense_rank] }
+        [1, "Alice", 15, 1],
+        [1, "Bob", 15, 1],
+        [1, "Charlie", 20, 2],
+        [2, "David", 25, 1],
+        [2, "Eve", 25, 1],
+        [3, "Grace", 10, 1],
+        [3, "Frank", 10, 1],
+        [3, "Hannah", 15, 2]
+      ], Attendee.window(
+        dense_rank: { partition: :event_id, order: :ticket_price }
+      ).pluck(:event_id, :name, :ticket_price)
     end
 
-    def test_window_percent_rank
+    def test_percent_rank
       assert_equal [
-        ["David", "Author", 0.0],
-        ["Mary", "Author", 0.5],
-        ["Steve", "Human", 1.0]
-      ], Essay
-           .window(percent_rank: { order: { writer_id: :asc } })
-           .map { |p| [p.writer_id, p.writer_type, p.percent_rank] }
+        [1, "Alice", 15, 0.0],
+        [1, "Bob", 15, 0.0],
+        [1, "Charlie", 20, 1.0],
+        [2, "David", 25, 0.0],
+        [2, "Eve", 25, 0.0],
+        [3, "Grace", 10, 0.0],
+        [3, "Frank", 10, 0.0],
+        [3, "Hannah", 15, 1.0]
+      ], Attendee.window(
+        percent_rank: { partition: :event_id, order: :ticket_price }
+      ).pluck(:event_id, :name, :ticket_price)
     end
 
-    def test_window_lead
+    def test_lead
       assert_equal [
-        ["David", "Author", "Stay Home", "A Modest Proposal"],
-        ["Mary", "Author", nil, "Stay Home"],
-        ["Steve", "Human", nil, "Connecting The Dots"]
-      ], Essay
-           .window(lead: { value: :name, partition: :writer_type, order: { writer_id: :asc } })
-           .map { |p| [p.writer_id, p.writer_type, p.lead, p.name] }
+        [1, "Alice", 15, "Bob"],
+        [1, "Bob", 15, "Charlie"],
+        [1, "Charlie", 20, nil],
+        [2, "David", 25, "Eve"],
+        [2, "Eve", 25, nil],
+        [3, "Grace", 10, "Frank"],
+        [3, "Frank", 10, "Hannah"],
+        [3, "Hannah", 15, nil]
+      ], Attendee.window(
+        lead: { value: :name, partition: :event_id, order: :ticket_price }
+      ).pluck(:event_id, :name, :ticket_price)
     end
 
-    def test_window_first_value
+    def test_first_value
       assert_equal [
-        ["David", "Author", "A Modest Proposal"],
-        ["Mary", "Author", "A Modest Proposal"],
-        ["Steve", "Human", "Connecting The Dots"]
-      ],
-        Essay.window(first_value: { value: :name, partition: :writer_type })
-             .map { |p| [p.writer_id, p.writer_type, p.first_value] }
+        [1, "Alice", 15, "Alice"],
+        [1, "Bob", 15, "Alice"],
+        [1, "Charlie", 20, "Alice"],
+        [2, "David", 25, "David"],
+        [2, "Eve", 25, "David"],
+        [3, "Grace", 10, "Grace"],
+        [3, "Frank", 10, "Grace"],
+        [3, "Hannah", 15, "Grace"]
+      ], Attendee.window(
+        first_value: { value: :name, partition: :event_id, order: :ticket_price }
+      ).pluck(:event_id, :name, :ticket_price)
     end
 
-    def test_window_last_value
+    def test_last_value
       assert_equal [
-        ["David", "Author", "Stay Home"],
-        ["Mary", "Author", "Stay Home"],
-        ["Steve", "Human", "Connecting The Dots"]
-      ], Essay
-           .window(last_value: { value: :name, partition: :writer_type })
-           .map { |p| [p.writer_id, p.writer_type, p.last_value] }
+        [1, "Alice", 15, "Alice"],
+        [1, "Bob", 15, "Alice"],
+        [1, "Charlie", 20, "Alice"],
+        [2, "David", 25, "David"],
+        [2, "Eve", 25, "David"],
+        [3, "Grace", 10, "Grace"],
+        [3, "Frank", 10, "Grace"],
+        [3, "Hannah", 15, "Grace"]
+      ], Attendee.window(
+        first_value: { value: :name, partition: :event_id, order: :ticket_price }
+      ).pluck(:event_id, :name, :ticket_price)
     end
 
-    def test_window_average
+    def test_avg
       assert_equal [
-        ["David", "Author", 13.0],
-        ["Mary", "Author", 13.0],
-        ["Steve", "Human", 19.0]
-      ], Essay
-           .window(avg: { value: Arel.sql("length(name)"), partition: :writer_type, as: "avg_writer_id" })
-           .map { |p| [p.writer_id, p.writer_type, p.avg_writer_id] }
+        [1, "Charlie", 20, 16.666666666666668],
+        [1, "Alice", 15, 16.666666666666668],
+        [1, "Bob", 15, 16.666666666666668],
+        [2, "David", 25, 25.0],
+        [2, "Eve", 25, 25.0],
+        [3, "Hannah", 15, 11.666666666666666],
+        [3, "Grace", 10, 11.666666666666666],
+        [3, "Frank", 10, 11.666666666666666]
+      ], Attendee.window(
+        avg: { value: :ticket_price, partition: :event_id }
+      ).pluck(:event_id, :name, :ticket_price)
     end
 
-    def test_window_sum
+    def test_sum
       assert_equal [
-        ["David", "Author", 1790021451],
-        ["Mary", "Author", 1790021451],
-        ["Steve", "Human", 606697136]
-      ], Essay
-           .window(sum: { value: :id, partition: :writer_type, as: "sum_writer_id" })
-           .map { |p| [p.writer_id, p.writer_type, p.sum_writer_id] }
+        [1, "Charlie", 20, 50],
+        [1, "Alice", 15, 50],
+        [1, "Bob", 15, 50],
+        [2, "David", 25, 50],
+        [2, "Eve", 25, 50],
+        [3, "Hannah", 15, 35],
+        [3, "Grace", 10, 35],
+        [3, "Frank", 10, 35]
+      ], Attendee.window(
+        sum: { value: :ticket_price, partition: :event_id }
+      ).pluck(:event_id, :name, :ticket_price)
     end
 
-    def test_window_function_with_no_options
+    # TODO: ADD MORE FUNTIONS
+    def test_function_with_no_options
       assert_equal [
-        ["Steve", "Human", 1],
-        ["David", "Author", 2],
-        ["Mary", "Author", 3]
-      ], Essay
-           .window(:row_number)
-           .map { |p| [p.writer_id, p.writer_type, p.row_number] }
+        ["Charlie", 1],
+        ["David", 2],
+        ["Hannah", 3],
+        ["Alice", 4],
+        ["Bob", 5],
+        ["Eve", 6],
+        ["Grace", 7],
+        ["Frank", 8]
+      ], Attendee.window(:row_number).pluck(:name)
     end
 
-    def test_window_function_combine_with_no_options
+    def test_function_with_partition_only
       assert_equal [
-        ["Steve", "Human", 1, 1],
-        ["David", "Author", 2, 1],
-        ["Mary", "Author", 3, 1]
-      ], Essay
-           .window(:row_number, :rank)
-           .map { |p| [p.writer_id, p.writer_type, p.row_number, p.rank] }
+        [1, "Charlie", 1],
+        [1, "Alice", 2],
+        [1, "Bob", 3],
+        [2, "David", 1],
+        [2, "Eve", 2],
+        [3, "Hannah", 1],
+        [3, "Grace", 2],
+        [3, "Frank", 3]
+      ], Attendee.window(row_number: { partition: :event_id }).pluck(:event_id, :name)
     end
 
-    def test_window_combined_functions
+    def test_function_with_order_only
       assert_equal [
-        ["David", "Author", 1, 1],
-        ["Mary", "Author", 2, 1],
-        ["Steve", "Human", 1, 1]
-      ], Essay
-           .window(
-             row_number: { partition: :writer_type, as: "row_number" },
-             rank: { partition: :writer_type, as: "rating" }
-           ).map { |p| [p.writer_id, p.writer_type, p.row_number, p.rating] }
+        ["Grace", 10, 1],
+        ["Frank", 10, 2],
+        ["Hannah", 15, 3],
+        ["Alice", 15, 4],
+        ["Bob", 15, 5],
+        ["Charlie", 20, 6],
+        ["David", 25, 7],
+        ["Eve", 25, 8]
+      ], Attendee.window(row_number: { order: :ticket_price }).pluck(:name, :ticket_price)
     end
 
-    def test_window_works_with_select_from
+    def test_combined_functions
       assert_equal [
+        [1, "Alice", 15, 1, 1],
+        [1, "Bob", 15, 2, 1],
+        [1, "Charlie", 20, 3, 3],
+        [2, "David", 25, 1, 1],
+        [2, "Eve", 25, 2, 1],
+        [3, "Grace", 10, 1, 1],
+        [3, "Frank", 10, 2, 1],
+        [3, "Hannah", 15, 3, 3]
+      ], Attendee.window(
+        row_number: { partition: :event_id, order: :ticket_price },
+        rank: { partition: :event_id, order: :ticket_price }
+      ).pluck(:event_id, :name, :ticket_price)
+    end
+
+    def test_works_with_select_from
+      assert_equal [
+        [1, "Charlie", 1],
+        [2, "David", 1],
+        [3, "Hannah", 1]
+      ], Attendee.select(Arel.star).from(
+        Attendee.window(row_number: { partition: :event_id })
+      ).where("row_number = 1").pluck(:event_id, :name, :row_number)
+    end
+
+    def test_accepts_arel_arrays
+      assert_equal [
+        [1, "Charlie", 2],
+        [2, "David", 2],
+        [3, "Hannah", 2],
+        [1, "Alice", 2],
+        [1, "Bob", 2],
+        [2, "Eve", 2],
+        [3, "Grace", 2],
+        [3, "Frank", 2]
+      ], Attendee.window(
+        nth_value: { value: [:event_id, 2] }
+      ).pluck(:event_id, :name)
+    end
+
+    def test_function_partition_and_order_on_association
+      assert_equal [
+        ["Music Festival", "David", 1],
+        ["Music Festival", "Eve", 2],
+        ["Startup Meetup", "Hannah", 1],
+        ["Startup Meetup", "Grace", 2],
+        ["Startup Meetup", "Frank", 3],
+        ["Tech Conference", "Charlie", 1],
+        ["Tech Conference", "Alice", 2],
+        ["Tech Conference", "Bob", 3]
+      ], Attendee.joins(:event).window(
+        row_number: { partition: "events.title", order: { "events.title": :asc } }
+      ).pluck(:"events.title", :name)
+    end
+
+    def test_array_partition
+      assert_equal [
+        [1, "Alice", 15, 1],
+        [1, "Bob", 15, 2],
+        [1, "Charlie", 20, 1],
+        [2, "David", 25, 1],
+        [2, "Eve", 25, 2],
+        [3, "Grace", 10, 1],
+        [3, "Frank", 10, 2],
+        [3, "Hannah", 15, 1]
+      ], Attendee.window(
+        row_number: { partition: [:event_id, :ticket_price] }
+      ).pluck(:event_id, :name, :ticket_price)
+    end
+
+    def test_array_order
+      assert_equal [
+        [1, "Alice", 15, 1],
+        [1, "Bob", 15, 2],
+        [1, "Charlie", 20, 3],
+        [2, "David", 25, 4],
+        [2, "Eve", 25, 5],
+        [3, "Grace", 10, 6],
+        [3, "Frank", 10, 7],
+        [3, "Hannah", 15, 8]
+      ], Attendee.window(
+        row_number: { order: [:event_id, :ticket_price] }
+      ).pluck(:event_id, :name, :ticket_price)
+    end
+
+    def test_arel_argument
+      assert_equal [
+        ["Bob", 1],
+        ["Eve", 2],
         ["David", 1],
-        ["Steve", 1]
-      ], Essay.select(:writer_id, :rating).from(
-        Essay.window(
-          rank: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" }
-        )
-      ).where("rating = 1").map { |p| [p.writer_id, p.rating] }
-    end
-
-    def test_window_accepts_arel_arrays
-      assert_equal [
-        ["David", "Author", 921819970],
-        ["Mary", "Author", 921819970],
-        ["Steve", "Human", nil]
-      ], Essay
-           .window(nth_value: { value: [:id, 2], partition: :writer_type, as: "nth_value" })
-           .map { |p| [p.writer_id, p.writer_type, p.nth_value] }
-    end
-
-    def test_window_function_partition_and_order_on_association
-      assert_equal [
-        ["Welcome to the weblog", "Thank you for the welcome", 1],
-        ["Welcome to the weblog", "Thank you again for the welcome", 2],
-        ["So I was thinking", "Don't think too hard", 1],
-        ["sti comments", "Very Special type", 1],
-        ["sti comments", "Special type", 2],
-        ["sti comments", "Special type 2", 3],
-        ["sti comments", "Normal type", 4],
-        ["sti comments", "Sub special comment", 5],
-        ["sti me", "Normal type", 1],
-        ["sti me", "Special Type", 2],
-        ["sti me", "afrase", 3],
-        ["eager loading with OR'd conditions", "go wild", 1]
-      ], Comment
-           .joins(:post)
-           .window(row_number: { partition: "posts.id", order: { "posts.author_id": :asc }, as: "rating" })
-           .map { |p| [p.post.title, p.body, p.rating] }
-    end
-
-    def test_window_function_array_partition
-      assert_equal [
-        ["David", "Author", 1],
-        ["Mary", "Author", 1],
-        ["Steve", "Human", 1]
-      ], Essay
-           .window(rank: { partition: [:writer_type, :name], order: { writer_id: :asc }, as: "rating" })
-           .map { |p| [p.writer_id, p.writer_type, p.rating] }
-    end
-
-    def test_window_function_array_order
-      assert_equal [
-        ["Mary", "Author", 1],
-        ["David", "Author", 2],
-        ["Steve", "Human", 1]
-      ],
-        Essay
-          .window(rank: { partition: :writer_type, order: [:writer_type, name: :desc] })
-          .map { |p| [p.writer_id, p.writer_type, p.rank] }
+        ["Alice", 2],
+        ["Grace", 3],
+        ["Frank", 4],
+        ["Hannah", 1],
+        ["Charlie", 1]
+      ], Attendee.window(
+        row_number: { partition: Arel.sql("length(name)") }
+      ).pluck(:name)
     end
   end
 end

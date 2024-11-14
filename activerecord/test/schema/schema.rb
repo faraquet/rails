@@ -80,6 +80,13 @@ ActiveRecord::Schema.define do
     t.references :record, polymorphic: true, null: false
   end
 
+  create_table :attendees, force: true do |t|
+    t.references :event
+    t.string :name, null: false
+    t.integer :ticket_price, null: false
+    t.date :registration_date, null: false
+  end
+
   create_table :audit_logs, force: true do |t|
     t.column :message, :string, null: false
     t.column :developer_id, :integer, null: false

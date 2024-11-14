@@ -1,0 +1,11 @@
+tech_conference:
+  id: 1
+  title: Tech Conference
+
+music_festival:
+  id: 2
+  title: Music Festival
+
+startup_meetup:
+  id: 3
+  title: Startup Meetup

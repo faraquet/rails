@@ -1,0 +1,48 @@
+alice_on_tech_conference:
+  event_id: 1
+  name: Alice
+  ticket_price: 15
+  registration_date: 2024-01-05
+
+bob_on_tech_conference:
+  event_id: 1
+  name: Bob
+  ticket_price: 15
+  registration_date: 2024-01-06
+
+charlie_on_tech_conference:
+  event_id: 1
+  name: Charlie
+  ticket_price: 20
+  registration_date: 2024-01-07
+
+david_on_music_festival:
+  event_id: 2
+  name: David
+  ticket_price: 25
+  registration_date: 2024-02-10
+
+eve_on_music_festival:
+  event_id: 2
+  name: Eve
+  ticket_price: 25
+  registration_date: 2024-02-11
+
+frank_on_startup_meetup:
+  event_id: 3
+  name: Frank
+  ticket_price: 10
+  registration_date: 2024-03-20
+
+grace_on_startup:
+  event_id: 3
+  name: Grace
+  ticket_price: 10
+  registration_date: 2024-03-21
+
+hannah_on_startup:
+  event_id: 3
+  name: Hannah
+  ticket_price: 15
+  registration_date: 2024-03-22
+
