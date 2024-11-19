@@ -17,7 +17,7 @@ module ActiveRecord
       :and, :or, :annotate, :optimizer_hints, :extending,
       :having, :create_with, :distinct, :references, :none, :unscope, :merge, :except, :only,
       :count, :average, :minimum, :maximum, :sum, :calculate,
-      :pluck, :pick, :ids, :async_ids, :strict_loading, :excluding, :without, :with, :with_recursive, :window,
+      :pluck, :pick, :ids, :async_ids, :strict_loading, :excluding, :without, :with, :with_recursive, :row_number,
       :async_count, :async_average, :async_minimum, :async_maximum, :async_sum, :async_pluck, :async_pick,
       :insert, :insert_all, :insert!, :insert_all!, :upsert, :upsert_all
     ].freeze # :nodoc:

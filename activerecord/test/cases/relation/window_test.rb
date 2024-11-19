@@ -18,9 +18,8 @@ module ActiveRecord
         [3, "Grace", 10, 1],
         [3, "Frank", 10, 2],
         [3, "Hannah", 15, 3]
-      ], Attendee.window(
-        row_number: { partition: :event_id, order: :ticket_price }
-      ).pluck(:event_id, :name, :ticket_price)
+      ], Attendee.row_number.as(:rating).partition_by(:event_id).order(:ticket_price)
+                 # .rank.as(:rank).partition_by(:event_id).order(:ticket_price)
     end
 
     def test_rank

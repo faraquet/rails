@@ -430,213 +430,138 @@ module ActiveRecord
       self
     end
 
-    module Window
-      def build_select(arel)
-        super
 
-        arel.project(window_values) unless window_values.empty?
-      end
+    # module Window
+    #   def build_select(arel)
+    #     super
+    #
+    #     arel.project(window_values) unless window_values.empty?
+    #   end
+    #
+    #   # TODO:
+    #   # Fragments
+    #   # Docs
+    #   #
+    #
+    # def window(*args)
+    #   args = process_window_args(args)
+    #   spawn.window!(*args)
+    # end
+    #   def window!(*args) # :nodoc:
+    #     self.window_values |= args.map do |name, options|
+    #       build_window_function(name, options || {})
+    #     end
+    #
+    #     self
+    #   end
+    #
+    #   def build_window_function(name, options) # :nodoc:
+    #     window = Arel::Nodes::Window.new
+    #
+    #     apply_window_partition(window, options[:partition])
+    #     apply_window_order(window, options[:order])
+    #     apply_window_frame(window, options[:frame]) if options[:frame]
+    #
+    #     expressions = extract_window_value(options[:value])
+    #
+    #     Arel::Nodes::NamedFunction.new(name.to_s, expressions).over(window).as((options[:as] || name).to_s)
+    #   end
+    #
+    #   def apply_window_partition(window, partition) # :nodoc:
+    #     return unless partition
+    #
+    #     unless partition.is_a?(Symbol) || partition.is_a?(String) || partition.is_a?(Array)
+    #       raise ArgumentError, "Invalid argument for window partition"
+    #     end
+    #
+    #     window.partition(Array(partition).map { |p| Arel.sql(p.to_s) })
+    #   end
+    #
+    #   def apply_window_order(window, order) # :nodoc:
+    #     return unless order
+    #
+    #     order_options = prepare_window_order_args(order)
+    #     window.order(order_options)
+    #   end
+    #
+    #   def apply_window_frame(window, frame_options)
+    #     # frame = Arel::Nodes::Window::Frame.new(frame_options[:range] || :rows)
+    #     # frame.exclusions = frame_options[:exclusions] if frame_options[:exclusions]
+    #     # frame.start = frame_options[:start] if frame_options[:start]
+    #     # frame.end = frame_options[:end] if frame_options[:end]
+    #     window.frame(Arel.sql "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW")
+    #   end
+    #
+    #   def extract_window_value(value) # :nodoc:
+    #     case value
+    #     when Symbol, String
+    #       [Arel::Nodes::SqlLiteral.new(value.to_s)]
+    #     when nil
+    #       []
+    #     when Array
+    #       value.map { |v| Arel::Nodes::SqlLiteral.new(v.to_s) }
+    #     else
+    #       raise ArgumentError, "Invalid argument for window value"
+    #     end
+    #   end
+    #
+    #   def prepare_window_order_args(*args) # :nodoc:
+    #     check_if_method_has_arguments!(__callee__, args) do
+    #       sanitize_order_arguments(args)
+    #     end
+    #     preprocess_order_args(args)
+    #     args
+    #   end
+    #
+    #   VALID_WINDOW_OPTIONS = [:value, :partition, :order, :frame, :as].freeze
+    #   def process_window_args(args) # :nodoc:
+    #     args.flat_map do |element|
+    #       if element.is_a?(Hash)
+    #         unsupported_keys = element.values.flat_map(&:keys) - VALID_WINDOW_OPTIONS
+    #         unless unsupported_keys.empty?
+    #           raise ArgumentError, "Unsupported options: #{unsupported_keys.join(', ')}"
+    #         end
+    #
+    #         element.map { |k, v| [k, v] }
+    #       else
+    #         [element]
+    #       end
+    #     end
+    #   end
+    # end
+    module WindowFunction
+      class WindowChain
+        attr_reader :function, :alias_name, :partition_columns, :order_columns
 
-      # TODO:
-      # Fragments
-      # Docs
-      #
-
-      # Window functions provide the ability to perform calculations across sets of rows that are related to the current query row.
-      #
-      # This is comparable to the type of calculation that can be done with an aggregate function. However, unlike
-      # aggregate functions, window functions do not cause rows to become grouped into a single output row — the rows
-      # retain their separate identities. Behind the scenes, window functions are implemented using the SQL `OVER` clause.
-      #
-      # @example Using row_number window function
-      #   Post.window(row_number: { partition: :author_id, order: :created_at, as: :rating })
-      #   # => SELECT "posts".*, row_number() OVER (PARTITION BY author_id ORDER BY "created_at" ASC) AS rating FROM "posts"
-      #
-      # @example Using avg window function with custom function value
-      #   Post.window(avg: { value: Arel.sql("length(title)"), partition: :author_id, as: :avg_title_length })
-      #   # => SELECT "posts".*, avg(length(title)) OVER (PARTITION BY author_id) AS avg_title_length FROM "posts"
-      #
-      # @example Using window function without options
-      #   Post.window(:row_number)
-      #   # => SELECT "posts".*, row_number() OVER () AS row_number FROM "posts"
-      #
-      # @example Using multiple window functions
-      #   Post.window(:row_number, rank: { partition: :author_id, order: :created_at, as: :rank })
-      #   # => SELECT "posts".*, row_number() OVER () AS row_number, rank() OVER (PARTITION BY author_id ORDER BY "created_at" ASC) AS rank FROM "posts"
-      #
-      # @example Using window function with joins
-      #   Post.joins(:comments).window(row_number: { partition: :author_id, order: :created_at, as: :rank })
-      #   # => SELECT "posts".*, row_number() OVER (PARTITION BY author_id ORDER BY "created_at" ASC) AS rank FROM "posts"
-      #   #    INNER JOIN "comments" ON "comments"."post_id" = "posts"."id"
-      #
-      # @example Using window function with joins and custom partition and order
-      #   Comment.joins(:post).window(
-      #     row_number: { partition: "posts.id", order: { "posts.author_id": :asc }, as: "rating" }
-      #   )
-      #   # => SELECT "comments".*, row_number() OVER (PARTITION BY posts.id ORDER BY posts.author_id ASC) AS rating FROM "comments"
-      #   #    INNER JOIN "posts" ON "posts"."id" = "comments"."post_id"
-      #
-      # @example Using window function with select and from
-      #   Essay.select(:writer_id, :rating).from(Essay.window(
-      #     row_number: { partition: :writer_type, order: { writer_id: :asc }, as: "row_number" },
-      #     rank: { partition: :writer_type, order: { writer_id: :asc }, as: "rating" })).where("rating = 1")
-      #   # => SELECT "essays"."writer_id", "essays"."rating" FROM (
-      #   #    SELECT "essays".*,
-      #   #      row_number() OVER (PARTITION BY writer_type ORDER BY writer_id ASC) AS row_number,
-      #   #      rank() OVER (PARTITION BY writer_type ORDER BY writer_id ASC) AS rating FROM "essays"
-      #   #   ) subquery WHERE rating = 1
-      #
-      # @example Using window function with custom frame
-      #   Post.window(sum: { value: :views, partition: :author_id, order: :created_at, frame: { range: :unbounded, preceding: :current_row }, as: :total_views })
-      #   # => SELECT "posts".*, sum(views) OVER (PARTITION BY author_id ORDER BY "created_at" ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS total_views FROM "posts"
-      #
-      # @example Using window function with multiple partitions
-      #   Post.window(row_number: { partition: [:author_id, :category_id], order: :created_at, as: :rank })
-      #   # => SELECT "posts".*, row_number() OVER (PARTITION BY author_id, category_id ORDER BY "created_at" ASC) AS rank FROM "posts"
-      #
-      # @example Using window function with custom alias
-      #   Post.window(row_number: { partition: :author_id, order: :created_at, as: :custom_rank })
-      #   # => SELECT "posts".*, row_number() OVER (PARTITION BY author_id ORDER BY "created_at" ASC) AS custom_rank FROM "posts"
-      def window(*args)
-        args = process_window_args(args)
-        spawn.window!(*args)
-      end
-
-      # TODO: Maybe we can use this to implement the window function DSL
-      # TODO: same as wherechains
-      # Attendee.window do
-      #   row_number.partition_by(:event_id).order_by(:ticket_price)
-      #   rank.partition_by(:event_id).order_by(:ticket_price)
-      # end
-      #
-      # # Define the window function DSL
-      # def self.window(&block)
-      #   WindowFunctionBuilder.new(self).instance_eval(&block)
-      # end
-      #
-      # class WindowFunctionBuilder
-      #   def initialize(model)
-      #     @model = model
-      #     @window_functions = []
-      #   end
-      #
-      #   def row_number
-      #     WindowFunction.new(:row_number)
-      #   end
-      #
-      #   def rank
-      #     WindowFunction.new(:rank)
-      #   end
-      #
-      #   # Method to add each window function with its specified params
-      #   def add_window_function(func)
-      #     @window_functions << func
-      #   end
-      #
-      #   class WindowFunction
-      #     def initialize(function_name)
-      #       @function_name = function_name
-      #       @partition_by = nil
-      #       @order_by = nil
-      #     end
-      #
-      #     def partition_by(column)
-      #       @partition_by = column
-      #       self
-      #     end
-      #
-      #     def order_by(column)
-      #       @order_by = column
-      #       self
-      #     end
-      #
-      #     def to_sql
-      #       "#{@function_name}() OVER (PARTITION BY #{@partition_by} ORDER BY #{@order_by})"
-      #     end
-      #   end
-      def window!(*args) # :nodoc:
-        self.window_values |= args.map do |name, options|
-          build_window_function(name, options || {})
+        def initialize(function)
+          @function = function
+          @alias_name = nil
+          @partition_columns = []
+          @order_columns = []
         end
 
-        self
-      end
-
-      def build_window_function(name, options) # :nodoc:
-        window = Arel::Nodes::Window.new
-
-        apply_window_partition(window, options[:partition])
-        apply_window_order(window, options[:order])
-        apply_window_frame(window, options[:frame]) if options[:frame]
-
-        expressions = extract_window_value(options[:value])
-
-        Arel::Nodes::NamedFunction.new(name.to_s, expressions).over(window).as((options[:as] || name).to_s)
-      end
-
-      def apply_window_partition(window, partition) # :nodoc:
-        return unless partition
-
-        unless partition.is_a?(Symbol) || partition.is_a?(String) || partition.is_a?(Array)
-          raise ArgumentError, "Invalid argument for window partition"
+        def as(name)
+          @alias_name = name
+          self
         end
 
-        window.partition(Array(partition).map { |p| Arel.sql(p.to_s) })
-      end
+        def partition_by(*columns)
+          @partition_columns = columns
+          self
+        end
 
-      def apply_window_order(window, order) # :nodoc:
-        return unless order
-
-        order_options = prepare_window_order_args(order)
-        window.order(order_options)
-      end
-
-      def apply_window_frame(window, frame_options)
-        # frame = Arel::Nodes::Window::Frame.new(frame_options[:range] || :rows)
-        # frame.exclusions = frame_options[:exclusions] if frame_options[:exclusions]
-        # frame.start = frame_options[:start] if frame_options[:start]
-        # frame.end = frame_options[:end] if frame_options[:end]
-        window.frame(Arel.sql "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW")
-      end
-
-      def extract_window_value(value) # :nodoc:
-        case value
-        when Symbol, String
-          [Arel::Nodes::SqlLiteral.new(value.to_s)]
-        when nil
-          []
-        when Array
-          value.map { |v| Arel::Nodes::SqlLiteral.new(v.to_s) }
-        else
-          raise ArgumentError, "Invalid argument for window value"
+        def order(*columns)
+          @order_columns = columns
+          self
         end
       end
 
-      def prepare_window_order_args(*args) # :nodoc:
-        check_if_method_has_arguments!(__callee__, args) do
-          sanitize_order_arguments(args)
-        end
-        preprocess_order_args(args)
-        args
+      def row_number
+        WindowChain.new(:row_number)
       end
-
-      VALID_WINDOW_OPTIONS = [:value, :partition, :order, :frame, :as].freeze
-      def process_window_args(args) # :nodoc:
-        args.flat_map do |element|
-          if element.is_a?(Hash)
-            unsupported_keys = element.values.flat_map(&:keys) - VALID_WINDOW_OPTIONS
-            unless unsupported_keys.empty?
-              raise ArgumentError, "Unsupported options: #{unsupported_keys.join(', ')}"
-            end
-
-            element.map { |k, v| [k, v] }
-          else
-            [element]
-          end
-        end
-      end
+      Attendee.row_number.as(:rating).partition_by(:event_id).order(:ticket_price)
     end
-    prepend Window
+    prepend WindowFunction
 
     # Add a Common Table Expression (CTE) that you can then reference within another SELECT statement.
     #
