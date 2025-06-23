@@ -147,6 +147,36 @@ module ActiveRecord
           }
         end
 
+        # --- Enhanced sorting logic for association arrays with complex order scopes ---
+        parents.values.each do |parent|
+          parent.class.reflect_on_all_associations.each do |reflection|
+            next unless reflection.collection? && reflection.scope
+            assoc = parent.association(reflection.name)
+            next unless assoc.loaded? && assoc.target.is_a?(Array)
+            scope_rel = reflection.klass.instance_exec(&reflection.scope)
+            order_values = scope_rel.order_values
+            next if order_values.empty?
+
+            # Build an array of [column, direction] pairs
+            order_columns = order_values.map do |order|
+              if order.is_a?(Arel::Nodes::Ordering)
+                [order.expr.name.to_s, order.direction.to_s.downcase]
+              else
+                col, dir = order.to_s.strip.split(/\s+/, 2)
+                [col, (dir || 'asc').downcase]
+              end
+            end
+
+            assoc.target.sort_by! do |record|
+              order_columns.map do |col, dir|
+                value = record.respond_to?(col) ? record.send(col) : nil
+                dir == 'desc' ? (value.nil? ? 1 : -value) : value
+              end
+            end
+          end
+        end
+        # --- END enhanced sorting logic ---
+
         parents.values
       end
 
