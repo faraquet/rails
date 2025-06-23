@@ -147,6 +147,25 @@ module ActiveRecord
           }
         end
 
+        # --- Sort association arrays according to their order scopes (simple cases only) ---
+        parents.values.each do |parent|
+          parent.class.reflect_on_all_associations.each do |reflection|
+            next unless reflection.collection? && reflection.scope
+            assoc = parent.association(reflection.name)
+            next unless assoc.loaded? && assoc.target.is_a?(Array)
+            scope_rel = reflection.klass.instance_exec(&reflection.scope)
+            order_values = scope_rel.order_values
+            next if order_values.empty?
+            # Only handle simple order cases (e.g., one column, ASC/DESC)
+            order_column, direction = order_values.first.to_s.split
+            direction = direction&.downcase == 'desc' ? -1 : 1
+            if assoc.target.all? { |a| a.respond_to?(order_column) }
+              assoc.target.sort_by! { |a| direction * a.send(order_column) }
+            end
+          end
+        end
+        # --- END sorting logic ---
+
         parents.values
       end
 
