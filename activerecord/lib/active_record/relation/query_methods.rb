@@ -297,7 +297,8 @@ module ActiveRecord
     def eager_load(*args)
       check_if_method_has_arguments!(__callee__, args)
       relation = spawn.eager_load!(*args)
-      process_association_orders(relation, args.flatten)
+      order_clauses = collect_association_orders(relation.klass, args.flatten)
+      relation = relation.order(order_clauses.join(", ")) if order_clauses.any?
       relation
     end
 
@@ -2295,8 +2296,8 @@ module ActiveRecord
         end
       end
 
-      def process_association_orders(relation, associations, parent_klass = nil)
-        klass = parent_klass || relation.klass
+      def collect_association_orders(klass, associations)
+        orders = []
         Array(associations).each do |assoc|
           case assoc
           when Symbol, String
@@ -2307,29 +2308,28 @@ module ActiveRecord
               association_scope_relation = reflection.klass.instance_exec(&association_scope)
               association_order_values = association_scope_relation.order_values
               if association_order_values.present?
-                association_order_sql = association_order_values.map { |o| o.is_a?(Arel::Nodes::Node) ? o.to_sql : o.to_s }.join(", ")
-                relation = relation.order(association_order_sql)
+                orders.concat(association_order_values.map { |o| o.is_a?(Arel::Nodes::Node) ? o.to_sql : o.to_s })
               end
             end
           when Hash
             assoc.each do |parent, children|
               reflection = klass._reflect_on_association(parent)
               next unless reflection
-              # Apply order for the parent association
+              # Collect order for the parent association
               association_scope = reflection.scope
               if association_scope
                 association_scope_relation = reflection.klass.instance_exec(&association_scope)
                 association_order_values = association_scope_relation.order_values
                 if association_order_values.present?
-                  association_order_sql = association_order_values.map { |o| o.is_a?(Arel::Nodes::Node) ? o.to_sql : o.to_s }.join(", ")
-                  relation = relation.order(association_order_sql)
+                  orders.concat(association_order_values.map { |o| o.is_a?(Arel::Nodes::Node) ? o.to_sql : o.to_s })
                 end
               end
               # Recurse into children
-              process_association_orders(relation, children, reflection.klass)
+              orders.concat(collect_association_orders(reflection.klass, children))
             end
           end
         end
+        orders
       end
   end
 end
