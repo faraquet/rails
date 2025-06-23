@@ -285,11 +285,32 @@ module ActiveRecord
     #   #   LEFT OUTER JOIN "friends" ON "friends"."user_id" = "users"."id"
     #   #   ...
     #
+    # When an association has an order scope, its ordering will be merged into the top-level
+    # ORDER BY clause of the generated SQL. This ensures that the associated records are
+    # loaded with the specified order when using eager_load.
+    #
+    #   users = User.eager_load(:posts)
+    #   # => SELECT ... LEFT OUTER JOIN ... ORDER BY posts.created_at DESC, ...
+    #
     # NOTE: Loading the associations in a join can result in many rows that
     # contain redundant data and it performs poorly at scale.
     def eager_load(*args)
       check_if_method_has_arguments!(__callee__, args)
-      spawn.eager_load!(*args)
+      relation = spawn.eager_load!(*args)
+      args.flatten.each do |association|
+        reflection = relation.klass.reflect_on_association(association)
+        next unless reflection
+        association_scope = reflection.scope
+        if association_scope
+          association_scope_relation = reflection.klass.instance_exec(&association_scope)
+          association_order_values = association_scope_relation.order_values
+          if association_order_values.present?
+            association_order_sql = association_order_values.map { |o| o.is_a?(Arel::Nodes::Node) ? o.to_sql : o.to_s }.join(", ")
+            relation = relation.order(association_order_sql)
+          end
+        end
+      end
+      relation
     end
 
     def eager_load!(*args) # :nodoc:
