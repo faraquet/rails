@@ -147,7 +147,7 @@ module ActiveRecord
           }
         end
 
-        # --- Enhanced sorting logic for association arrays with complex order scopes ---
+        # --- Robust enhanced sorting logic for association arrays with complex order scopes ---
         parents.values.each do |parent|
           parent.class.reflect_on_all_associations.each do |reflection|
             next unless reflection.collection? && reflection.scope
@@ -167,15 +167,29 @@ module ActiveRecord
               end
             end
 
-            assoc.target.sort_by! do |record|
-              order_columns.map do |col, dir|
-                value = record.respond_to?(col) ? record.send(col) : nil
-                dir == 'desc' ? (value.nil? ? 1 : -value) : value
+            assoc.target.sort! do |a, b|
+              cmp = 0
+              order_columns.each do |col, dir|
+                av = a.respond_to?(col) ? a.send(col) : nil
+                bv = b.respond_to?(col) ? b.send(col) : nil
+                # nils last for ASC, first for DESC
+                if av.nil? && bv.nil?
+                  cmp = 0
+                elsif av.nil?
+                  cmp = dir == 'desc' ? -1 : 1
+                elsif bv.nil?
+                  cmp = dir == 'desc' ? 1 : -1
+                else
+                  cmp = av <=> bv
+                  cmp = -cmp if dir == 'desc'
+                end
+                break unless cmp == 0
               end
+              cmp
             end
           end
         end
-        # --- END enhanced sorting logic ---
+        # --- END robust enhanced sorting logic ---
 
         parents.values
       end

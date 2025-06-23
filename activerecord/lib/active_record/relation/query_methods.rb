@@ -297,8 +297,13 @@ module ActiveRecord
     def eager_load(*args)
       check_if_method_has_arguments!(__callee__, args)
       relation = spawn.eager_load!(*args)
+      # Collect parent primary key(s) for deterministic grouping
+      parent_keys = Array(relation.klass.primary_key).map { |pk| "#{relation.klass.table_name}.#{pk}" }
+      # Collect all association order clauses recursively
       order_clauses = collect_association_orders(relation.klass, args.flatten)
-      relation = relation.order(order_clauses.join(", ")) if order_clauses.any?
+      # Prepend parent keys to order clauses
+      all_order_clauses = parent_keys + order_clauses
+      relation = relation.order(all_order_clauses.join(", ")) if all_order_clauses.any?
       relation
     end
 
