@@ -297,19 +297,7 @@ module ActiveRecord
     def eager_load(*args)
       check_if_method_has_arguments!(__callee__, args)
       relation = spawn.eager_load!(*args)
-      args.flatten.each do |association|
-        reflection = relation.klass.reflect_on_association(association)
-        next unless reflection
-        association_scope = reflection.scope
-        if association_scope
-          association_scope_relation = reflection.klass.instance_exec(&association_scope)
-          association_order_values = association_scope_relation.order_values
-          if association_order_values.present?
-            association_order_sql = association_order_values.map { |o| o.is_a?(Arel::Nodes::Node) ? o.to_sql : o.to_s }.join(", ")
-            relation = relation.order(association_order_sql)
-          end
-        end
-      end
+      process_association_orders(relation, args.flatten)
       relation
     end
 
@@ -2304,6 +2292,43 @@ module ActiveRecord
           next true if v1.is_a?(Array) && v2.nil?
 
           v1 == v2
+        end
+      end
+
+      def process_association_orders(relation, associations, parent_klass = nil)
+        klass = parent_klass || relation.klass
+        Array(associations).each do |assoc|
+          case assoc
+          when Symbol, String
+            reflection = klass._reflect_on_association(assoc)
+            next unless reflection
+            association_scope = reflection.scope
+            if association_scope
+              association_scope_relation = reflection.klass.instance_exec(&association_scope)
+              association_order_values = association_scope_relation.order_values
+              if association_order_values.present?
+                association_order_sql = association_order_values.map { |o| o.is_a?(Arel::Nodes::Node) ? o.to_sql : o.to_s }.join(", ")
+                relation = relation.order(association_order_sql)
+              end
+            end
+          when Hash
+            assoc.each do |parent, children|
+              reflection = klass._reflect_on_association(parent)
+              next unless reflection
+              # Apply order for the parent association
+              association_scope = reflection.scope
+              if association_scope
+                association_scope_relation = reflection.klass.instance_exec(&association_scope)
+                association_order_values = association_scope_relation.order_values
+                if association_order_values.present?
+                  association_order_sql = association_order_values.map { |o| o.is_a?(Arel::Nodes::Node) ? o.to_sql : o.to_s }.join(", ")
+                  relation = relation.order(association_order_sql)
+                end
+              end
+              # Recurse into children
+              process_association_orders(relation, children, reflection.klass)
+            end
+          end
         end
       end
   end
