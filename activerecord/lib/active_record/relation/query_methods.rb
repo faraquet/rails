@@ -1309,13 +1309,13 @@ module ActiveRecord
     #
     #   users = User.readonly
     #   users.first.save
-    #   => ActiveRecord::ReadOnlyRecord: User is marked as readonly
+    #   # => ActiveRecord::ReadOnlyRecord: User is marked as readonly
     #
     # To make a readonly relation writable, pass +false+.
     #
     #   users.readonly(false)
     #   users.first.save
-    #   => true
+    #   # => true
     def readonly(value = true)
       spawn.readonly!(value)
     end
@@ -1330,7 +1330,7 @@ module ActiveRecord
     #
     #   user = User.strict_loading.first
     #   user.comments.to_a
-    #   => ActiveRecord::StrictLoadingViolationError
+    #   # => ActiveRecord::StrictLoadingViolationError
     def strict_loading(value = true)
       spawn.strict_loading!(value)
     end
@@ -2028,8 +2028,11 @@ module ActiveRecord
             return _reverse_order_columns.map { |column| table[column].desc }
           end
 
-          raise IrreversibleOrderError,
-            "Relation has no current order and table has no order columns to be used as default order"
+          raise IrreversibleOrderError, <<~MSG.squish
+            Relation has no order values, and #{model} has no order columns to use as a default.
+            Set at least one of `implicit_order_column`, or `primary_key` on the model when no
+            `order `is specified on the relation.
+          MSG
         end
 
         order_query.flat_map do |o|
