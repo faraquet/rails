@@ -529,39 +529,98 @@ module ActiveRecord
     #     end
     #   end
     # end
-    module WindowFunction
-      class WindowChain
-        attr_reader :function, :alias_name, :partition_columns, :order_columns
 
-        def initialize(function)
-          @function = function
-          @alias_name = nil
-          @partition_columns = []
-          @order_columns = []
-        end
-
-        def as(name)
-          @alias_name = name
-          self
-        end
-
-        def partition_by(*columns)
-          @partition_columns = columns
-          self
-        end
-
-        def order(*columns)
-          @order_columns = columns
-          self
-        end
-      end
-
-      def row_number
-        WindowChain.new(:row_number)
-      end
-      Attendee.row_number.as(:rating).partition_by(:event_id).order(:ticket_price)
+    # Window functions API
+    #
+    #   Attendee.window(row_number: { partition: :event_id, order: :ticket_price, as: :rating })
+    #
+    # Supports multiple functions at once and can be used as a subquery source.
+    def window(*args)
+      check_if_method_has_arguments!(__callee__, args)
+      args = process_window_args(args)
+      spawn.window!(*args)
     end
-    prepend WindowFunction
+
+    def window!(*args) # :nodoc:
+      self.window_values |= args.map { |name, options| build_window_function(name, options || {}) }
+      self
+    end
+
+    def build_window_function(name, options) # :nodoc:
+      window = Arel::Nodes::Window.new
+
+      apply_window_partition(window, options[:partition])
+      apply_window_order(window, options[:order])
+      apply_window_frame(window, options[:frame]) if options[:frame]
+
+      expressions = extract_window_value(options[:value])
+
+      Arel::Nodes::NamedFunction
+        .new(name.to_s, expressions)
+        .over(window)
+        .as((options[:as] || name).to_s)
+    end
+
+    def apply_window_partition(window, partition) # :nodoc:
+      return unless partition
+
+      parts = Array(partition).map { |p| Arel.arel_node?(p) ? p : Arel.sql(p.to_s) }
+      window.partition(parts)
+    end
+
+    def apply_window_order(window, order) # :nodoc:
+      return unless order
+
+      order_options = prepare_window_order_args(order)
+      window.order(order_options)
+    end
+
+    # Minimal frame handling for now; extend as needed.
+    def apply_window_frame(window, frame_options) # :nodoc:
+      window.frame(Arel.sql "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW")
+    end
+
+    def extract_window_value(value) # :nodoc:
+      case value
+      when Symbol, String
+        [Arel.sql(value.to_s)]
+      when nil
+        []
+      when Array
+        value.map { |v| Arel.sql(v.to_s) }
+      else
+        if Arel.arel_node?(value)
+          [value]
+        else
+          raise ArgumentError, "Invalid argument for window value"
+        end
+      end
+    end
+
+    def prepare_window_order_args(order) # :nodoc:
+      args = order.is_a?(Array) ? order.dup : [order]
+      check_if_method_has_arguments!(__callee__, args) do
+        sanitize_order_arguments(args)
+      end
+      preprocess_order_args(args)
+      args
+    end
+
+    VALID_WINDOW_OPTIONS = [:value, :partition, :order, :frame, :as].freeze
+    def process_window_args(args) # :nodoc:
+      args.flat_map do |element|
+        if element.is_a?(Hash)
+          unsupported_keys = element.values.compact.flat_map(&:keys) - VALID_WINDOW_OPTIONS
+          unless unsupported_keys.empty?
+            raise ArgumentError, "Unsupported options: #{unsupported_keys.join(', ')}"
+          end
+
+          element.map { |k, v| [k, v] }
+        else
+          [element]
+        end
+      end
+    end
 
     # Add a Common Table Expression (CTE) that you can then reference within another SELECT statement.
     #
@@ -2036,6 +2095,8 @@ module ActiveRecord
         else
           arel.project(table[Arel.star])
         end
+
+        arel.project(*window_values) unless window_values.empty?
       end
 
       def build_with(arel)
