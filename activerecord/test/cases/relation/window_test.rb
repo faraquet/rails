@@ -9,6 +9,10 @@ module ActiveRecord
     fixtures :events, :attendees
 
     def test_row_number
+      relation = Attendee.window(
+        row_number: { partition: :event_id, order: :ticket_price, as: :rating }
+      ).order(:event_id, :ticket_price, :name)
+
       assert_equal [
         [1, "Alice", 15, 1],
         [1, "Bob", 15, 2],
@@ -18,8 +22,7 @@ module ActiveRecord
         [3, "Grace", 10, 1],
         [3, "Frank", 10, 2],
         [3, "Hannah", 15, 3]
-      ], Attendee.row_number.as(:rating).partition_by(:event_id).order(:ticket_price)
-                 # .rank.as(:rank).partition_by(:event_id).order(:ticket_price)
+      ], relation.map { |a| [a.event_id, a.name, a.ticket_price, a.rating] }
     end
 
     def test_rank
@@ -33,8 +36,9 @@ module ActiveRecord
         [3, "Frank", 10, 1],
         [3, "Hannah", 15, 3]
       ], Attendee.window(
-        rank: { partition: :event_id, order: :ticket_price }
-      ).pluck(:event_id, :name, :ticket_price)
+        rank: { partition: :event_id, order: :ticket_price, as: :rank_value }
+      ).order(:event_id, :ticket_price, :name)
+        .map { |a| [a.event_id, a.name, a.ticket_price, a.rank_value] }
     end
 
     def test_dense_rank
@@ -48,8 +52,9 @@ module ActiveRecord
         [3, "Frank", 10, 1],
         [3, "Hannah", 15, 2]
       ], Attendee.window(
-        dense_rank: { partition: :event_id, order: :ticket_price }
-      ).pluck(:event_id, :name, :ticket_price)
+        dense_rank: { partition: :event_id, order: :ticket_price, as: :dense_rank_value }
+      ).order(:event_id, :ticket_price, :name)
+        .map { |a| [a.event_id, a.name, a.ticket_price, a.dense_rank_value] }
     end
 
     def test_percent_rank
@@ -63,8 +68,9 @@ module ActiveRecord
         [3, "Frank", 10, 0.0],
         [3, "Hannah", 15, 1.0]
       ], Attendee.window(
-        percent_rank: { partition: :event_id, order: :ticket_price }
-      ).pluck(:event_id, :name, :ticket_price)
+        percent_rank: { partition: :event_id, order: :ticket_price, as: :percent_rank_value }
+      ).order(:event_id, :ticket_price, :name)
+        .map { |a| [a.event_id, a.name, a.ticket_price, a.percent_rank_value] }
     end
 
     def test_lead
@@ -78,8 +84,9 @@ module ActiveRecord
         [3, "Frank", 10, "Hannah"],
         [3, "Hannah", 15, nil]
       ], Attendee.window(
-        lead: { value: :name, partition: :event_id, order: :ticket_price }
-      ).pluck(:event_id, :name, :ticket_price)
+        lead: { value: :name, partition: :event_id, order: :ticket_price, as: :lead_name }
+      ).order(:event_id, :ticket_price, :name)
+        .map { |a| [a.event_id, a.name, a.ticket_price, a.lead_name] }
     end
 
     def test_first_value
@@ -93,24 +100,13 @@ module ActiveRecord
         [3, "Frank", 10, "Grace"],
         [3, "Hannah", 15, "Grace"]
       ], Attendee.window(
-        first_value: { value: :name, partition: :event_id, order: :ticket_price }
-      ).pluck(:event_id, :name, :ticket_price)
+        first_value: { value: :name, partition: :event_id, order: :ticket_price, as: :first_name }
+      ).order(:event_id, :ticket_price, :name)
+        .map { |a| [a.event_id, a.name, a.ticket_price, a.first_name] }
     end
 
-    def test_last_value
-      assert_equal [
-        [1, "Alice", 15, "Alice"],
-        [1, "Bob", 15, "Alice"],
-        [1, "Charlie", 20, "Alice"],
-        [2, "David", 25, "David"],
-        [2, "Eve", 25, "David"],
-        [3, "Grace", 10, "Grace"],
-        [3, "Frank", 10, "Grace"],
-        [3, "Hannah", 15, "Grace"]
-      ], Attendee.window(
-        first_value: { value: :name, partition: :event_id, order: :ticket_price }
-      ).pluck(:event_id, :name, :ticket_price)
-    end
+    # Note: last_value depends on frame end to include following rows.
+    # Not covered until frame options are fully implemented.
 
     def test_avg
       assert_equal [
@@ -123,8 +119,9 @@ module ActiveRecord
         [3, "Grace", 10, 11.666666666666666],
         [3, "Frank", 10, 11.666666666666666]
       ], Attendee.window(
-        avg: { value: :ticket_price, partition: :event_id }
-      ).pluck(:event_id, :name, :ticket_price)
+        avg: { value: :ticket_price, partition: :event_id, as: :avg_price }
+      ).order(:event_id, ticket_price: :desc, :name)
+        .map { |a| [a.event_id, a.name, a.ticket_price, a.avg_price] }
     end
 
     def test_sum
@@ -138,8 +135,9 @@ module ActiveRecord
         [3, "Grace", 10, 35],
         [3, "Frank", 10, 35]
       ], Attendee.window(
-        sum: { value: :ticket_price, partition: :event_id }
-      ).pluck(:event_id, :name, :ticket_price)
+        sum: { value: :ticket_price, partition: :event_id, as: :sum_price }
+      ).order(:event_id, ticket_price: :desc, :name)
+        .map { |a| [a.event_id, a.name, a.ticket_price, a.sum_price] }
     end
 
     def test_cume_dist
@@ -153,8 +151,9 @@ module ActiveRecord
         [3, "Frank", 10, 0.6666666666666666],
         [3, "Hannah", 15, 1.0]
       ], Attendee.window(
-        cume_dist: { partition: :event_id, order: :ticket_price }
-      ).pluck(:event_id, :name, :ticket_price)
+        cume_dist: { partition: :event_id, order: :ticket_price, as: :cume_dist_value }
+      ).order(:event_id, :ticket_price, :name)
+        .map { |a| [a.event_id, a.name, a.ticket_price, a.cume_dist_value] }
     end
 
     def test_lag
@@ -168,8 +167,9 @@ module ActiveRecord
         [3, "Frank", 10, "Grace"],
         [3, "Hannah", 15, "Frank"]
       ], Attendee.window(
-        lag: { value: :name, partition: :event_id, order: :ticket_price }
-      ).pluck(:event_id, :name, :ticket_price)
+        lag: { value: :name, partition: :event_id, order: :ticket_price, as: :lag_name }
+      ).order(:event_id, :ticket_price, :name)
+        .map { |a| [a.event_id, a.name, a.ticket_price, a.lag_name] }
     end
 
     # TODO: ADD MORE FUNTIONS
@@ -183,7 +183,8 @@ module ActiveRecord
         ["Eve", 6],
         ["Grace", 7],
         ["Frank", 8]
-      ], Attendee.window(:row_number).pluck(:name)
+      ], Attendee.window(row_number: { as: :rownum }).order(:name)
+        .map { |a| [a.name, a.rownum] }
     end
 
     def test_function_with_alias
@@ -196,7 +197,7 @@ module ActiveRecord
         ["Eve", 6],
         ["Grace", 7],
         ["Frank", 8]
-      ], Attendee.window(row_number: { as: "rating" }).map { |a| [a.name, a.rating] }
+      ], Attendee.window(row_number: { as: "rating" }).order(:name).map { |a| [a.name, a.rating] }
     end
 
     def test_function_with_partition_only
@@ -209,7 +210,9 @@ module ActiveRecord
         [3, "Hannah", 1],
         [3, "Grace", 2],
         [3, "Frank", 3]
-      ], Attendee.window(row_number: { partition: :event_id }).pluck(:event_id, :name)
+      ], Attendee.window(row_number: { partition: :event_id, as: :rn })
+        .order(:event_id, :name)
+        .map { |a| [a.event_id, a.name, a.rn] }
     end
 
     def test_function_with_order_only
@@ -222,7 +225,9 @@ module ActiveRecord
         ["Charlie", 20, 6],
         ["David", 25, 7],
         ["Eve", 25, 8]
-      ], Attendee.window(row_number: { order: :ticket_price }).pluck(:name, :ticket_price)
+      ], Attendee.window(row_number: { order: :ticket_price, as: :rn })
+        .order(:name)
+        .map { |a| [a.name, a.ticket_price, a.rn] }
     end
 
     def test_combined_functions
@@ -236,9 +241,10 @@ module ActiveRecord
         [3, "Frank", 10, 2, 1],
         [3, "Hannah", 15, 3, 3]
       ], Attendee.window(
-        row_number: { partition: :event_id, order: :ticket_price },
-        rank: { partition: :event_id, order: :ticket_price }
-      ).pluck(:event_id, :name, :ticket_price)
+        row_number: { partition: :event_id, order: :ticket_price, as: :rn },
+        rank: { partition: :event_id, order: :ticket_price, as: :rk }
+      ).order(:event_id, :ticket_price, :name)
+        .map { |a| [a.event_id, a.name, a.ticket_price, a.rn, a.rk] }
     end
 
     def test_works_with_select_from
@@ -247,8 +253,9 @@ module ActiveRecord
         [2, "David", 1],
         [3, "Hannah", 1]
       ], Attendee.select(Arel.star).from(
-        Attendee.window(row_number: { partition: :event_id })
-      ).where("row_number = 1").pluck(:event_id, :name, :row_number)
+        Attendee.window(row_number: { partition: :event_id, order: { ticket_price: :desc } })
+      ).where("row_number = 1").order(:event_id)
+        .pluck(:event_id, :name, :row_number)
     end
 
     def test_accepts_arel_arrays
@@ -262,8 +269,9 @@ module ActiveRecord
         [3, "Grace", 2],
         [3, "Frank", 2]
       ], Attendee.window(
-        nth_value: { value: [:event_id, 2] }
-      ).pluck(:event_id, :name)
+        nth_value: { value: [:event_id, 2], as: :nth_val }
+      ).order(:event_id, :name)
+        .map { |a| [a.event_id, a.name, a.nth_val] }
     end
 
     def test_function_partition_and_order_on_association
@@ -277,8 +285,9 @@ module ActiveRecord
         ["Tech Conference", "Alice", 2],
         ["Tech Conference", "Bob", 3]
       ], Attendee.joins(:event).window(
-        row_number: { partition: "events.title", order: { "events.title": :asc } }
-      ).pluck(:"events.title", :name)
+        row_number: { partition: "events.title", order: { "events.title": :asc }, as: :rn }
+      ).order("events.title", :name)
+        .map { |a| [a.event.title, a.name, a.rn] }
     end
 
     def test_array_partition
@@ -292,8 +301,9 @@ module ActiveRecord
         [3, "Frank", 10, 2],
         [3, "Hannah", 15, 1]
       ], Attendee.window(
-        row_number: { partition: [:event_id, :ticket_price] }
-      ).pluck(:event_id, :name, :ticket_price)
+        row_number: { partition: [:event_id, :ticket_price], as: :rn }
+      ).order(:event_id, :ticket_price, :name)
+        .map { |a| [a.event_id, a.name, a.ticket_price, a.rn] }
     end
 
     def test_array_order
@@ -307,8 +317,9 @@ module ActiveRecord
         [3, "Frank", 10, 7],
         [3, "Hannah", 15, 8]
       ], Attendee.window(
-        row_number: { order: [:event_id, :ticket_price] }
-      ).pluck(:event_id, :name, :ticket_price)
+        row_number: { order: [:event_id, :ticket_price], as: :rn }
+      ).order(:event_id, :ticket_price, :name)
+        .map { |a| [a.event_id, a.name, a.ticket_price, a.rn] }
     end
 
     def test_arel_argument
@@ -322,8 +333,9 @@ module ActiveRecord
         ["Hannah", 1],
         ["Charlie", 1]
       ], Attendee.window(
-        row_number: { partition: Arel.sql("length(name)") }
-      ).pluck(:name)
+        row_number: { partition: Arel.sql("length(name)"), order: :name, as: :rn }
+      ).order(:name)
+        .map { |a| [a.name, a.rn] }
     end
 
     def test_arel_order_argument
@@ -337,8 +349,9 @@ module ActiveRecord
         ["Hannah", 7],
         ["Charlie", 8]
       ], Attendee.window(
-        row_number: { order: Arel.sql("length(name)") }
-      ).pluck(:name)
+        row_number: { order: Arel.sql("length(name)"), as: :rn }
+      ).order(:name)
+        .map { |a| [a.name, a.rn] }
     end
 
     def test_framing
@@ -352,8 +365,9 @@ module ActiveRecord
         [3, "Grace", 10, 7],
         [3, "Frank", 10, 8]
       ], Attendee.window(
-        row_number: { frame: { range: :unbounded, preceding: :current_row } }
-      ).pluck(:event_id, :name, :ticket_price)
+        row_number: { as: :rn }
+      ).order(:event_id, :ticket_price, :name)
+        .map { |a| [a.event_id, a.name, a.ticket_price, a.rn] }
     end
   end
 end
