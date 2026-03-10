@@ -2699,6 +2699,22 @@ class HasManyAssociationsTest < ActiveRecord::TestCase
     assert_equal [bulb1, bulb3], result
   end
 
+  def test_replace_removes_records_added_after_the_association_was_loaded
+    car = Car.create!(name: "honda")
+    existing_bulb = car.bulbs.create!
+
+    car.bulbs.load
+    stale_bulb = Bulb.create!(car: car)
+    replacement_bulb = Bulb.new
+
+    car.bulbs = [replacement_bulb]
+
+    assert_equal [replacement_bulb], car.bulbs
+    assert_equal [replacement_bulb.id], car.reload.bulbs.pluck(:id)
+    assert_not Bulb.exists?(existing_bulb.id)
+    assert_not Bulb.exists?(stale_bulb.id)
+  end
+
   def test_collection_association_with_private_kernel_method
     firm = companies(:first_firm)
     assert_equal [accounts(:signals37)], firm.accounts.open
