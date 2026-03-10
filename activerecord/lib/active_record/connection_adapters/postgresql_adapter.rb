@@ -373,13 +373,13 @@ module ActiveRecord
       end
 
       def connected?
-        !(@raw_connection.nil? || @raw_connection.finished?)
+        !(@raw_connection.nil? || @raw_connection.finished? || @raw_connection.status != PG::CONNECTION_OK)
       end
 
       # Is this connection alive and ready for queries?
       def active?
         @lock.synchronize do
-          return false unless @raw_connection
+          return false unless connected?
           @raw_connection.query ";"
           verified!
         end
@@ -706,8 +706,8 @@ module ActiveRecord
       end
 
       def check_version # :nodoc:
-        if database_version < 9_03_00 # < 9.3
-          raise "Your version of PostgreSQL (#{database_version}) is too old. Active Record supports PostgreSQL >= 9.3."
+        if database_version < 9_05_00 # < 9.5
+          raise "Your version of PostgreSQL (#{database_version}) is too old. Active Record supports PostgreSQL >= 9.5."
         end
       end
 
